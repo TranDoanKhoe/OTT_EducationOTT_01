@@ -175,7 +175,112 @@ public class AdminController {
         }
     }
 
+    /**
+     * Export thống kê ra CSV
+     */
+    @GetMapping("/statistics/export")
+    public ResponseEntity<byte[]> exportStatistics(
+            @RequestParam(defaultValue = "users") String type) {
+        try {
+            StringBuilder csv = new StringBuilder();
 
+            if ("users".equals(type)) {
+                csv.append("ID,Email,Username,Phone,Role,Status,Created At\n");
+                List<User> users = userRepository.findAll();
+                for (User user : users) {
+                    csv.append(String.format("%s,%s,%s,%s,%s,%s,%s\n",
+                            user.getId(),
+                            user.getEmail() != null ? user.getEmail() : "",
+                            user.getUsername() != null ? user.getUsername() : "",
+                            user.getPhone() != null ? user.getPhone() : "",
+                            user.getRole() != null ? user.getRole().name() : "STUDENT",
+                            user.getStatus() != null ? user.getStatus().name() : "ACTIVE",
+                            user.getCreatedAt() != null ? user.getCreatedAt().toString() : ""
+                    ));
+                }
+            } else if ("groups".equals(type)) {
+                csv.append("ID,Group Name,Members Count,Created At\n");
+                List<Group> groups = groupRepository.findAll();
+                for (Group group : groups) {
+                    csv.append(String.format("%s,%s,%d,%s\n",
+                            group.getId(),
+                            group.getName() != null ? group.getName().replace(",", ";") : "",
+                            group.getMemberIds() != null ? group.getMemberIds().size() : 0,
+                            group.getCreateAt() != null ? group.getCreateAt().toString() : ""
+                    ));
+                }
+            } else if ("messages".equals(type)) {
+                csv.append("Total Messages,Messages Today,Messages This Week,Messages This Month\n");
+                long total = messageRepository.count();
+                LocalDateTime today = LocalDate.now().atStartOfDay();
+                LocalDateTime weekAgo = LocalDateTime.now().minusWeeks(1);
+                LocalDateTime monthAgo = LocalDateTime.now().minusMonths(1);
+                csv.append(String.format("%d,%d,%d,%d\n",
+                        total,
+                        messageRepository.countByCreatedAtAfter(today),
+                        messageRepository.countByCreatedAtAfter(weekAgo),
+                        messageRepository.countByCreatedAtAfter(monthAgo)
+                ));
+            }
+
+            byte[] csvBytes = csv.toString().getBytes("UTF-8");
+            String filename = String.format("export_%s_%s.csv", type,
+                    LocalDate.now().format(DateTimeFormatter.ISO_DATE));
+
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + filename)
+                    .contentType(MediaType.parseMediaType("text/csv"))
+                    .body(csvBytes);
+        } catch (Exception e) {
+            log.error("Error exporting statistics: {}", e.getMessage());
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    // ==================== USER MANAGEMENT ====================
+
+    /**
+     * Lấy danh sách users với phân trang và filter
+     */
+    @GetMapping("/users")
+    public ResponseEntity<?> getAllUsers(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String role,
+            @RequestParam(required = false) String status) {
+        try {
+            Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+
+            Page<User> usersPage;
+            
+            if (search != null && !search.isEmpty()) {
+                usersPage = userRepository.findByEmailContainingIgnoreCaseOrUsernameContainingIgnoreCase(
+                        search, search, pageable);
+            } else if (role != null && !role.isEmpty()) {
+                UserRole userRole = UserRole.valueOf(role.toUpperCase());
+                usersPage = userRepository.findByRole(userRole, pageable);
+            } else if (status != null && !status.isEmpty()) {
+                UserStatus userStatus = UserStatus.valueOf(status.toUpperCase());
+                usersPage = userRepository.findByStatus(userStatus, pageable);
+            } else {
+                usersPage = userRepository.findAll(pageable);
+            }
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("users", usersPage.getContent().stream()
+                    .map(this::mapUserToResponse)
+                    .collect(Collectors.toList()));
+            response.put("currentPage", usersPage.getNumber());
+            response.put("totalItems", usersPage.getTotalElements());
+            response.put("totalPages", usersPage.getTotalPages());
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Error getting users: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
 
 
 
