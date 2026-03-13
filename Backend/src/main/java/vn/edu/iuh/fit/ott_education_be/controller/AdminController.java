@@ -345,7 +345,45 @@ public class AdminController {
         }
     }
 
+    /**
+     * Cập nhật status (khóa/mở khóa) user
+     */
+    @PutMapping("/users/{userId}/status")
+    public ResponseEntity<?> updateUserStatus(
+            @PathVariable String userId,
+            @RequestBody Map<String, String> request) {
+        try {
+            String newStatus = request.get("status");
+            if (newStatus == null) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Status is required"));
+            }
 
+            User user = userRepository.findById(userId).orElse(null);
+            if (user == null) {
+                return ResponseEntity.notFound().build();
+            }
+            
+            // Không cho phép block admin
+            if (user.getRole() == UserRole.ADMIN && "BLOCKED".equalsIgnoreCase(newStatus)) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Cannot block admin user"));
+            }
+
+            UserStatus status = UserStatus.valueOf(newStatus.toUpperCase());
+            user.setStatus(status);
+            userRepository.save(user);
+
+            log.info("Updated status for user {} to {}", userId, status);
+            return ResponseEntity.ok(Map.of(
+                    "message", status == UserStatus.ACTIVE ? "User unblocked successfully" : "User blocked successfully",
+                    "user", mapUserToResponse(user)
+            ));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Invalid status. Must be ACTIVE or BLOCKED"));
+        } catch (Exception e) {
+            log.error("Error updating user status: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
 
 
 
