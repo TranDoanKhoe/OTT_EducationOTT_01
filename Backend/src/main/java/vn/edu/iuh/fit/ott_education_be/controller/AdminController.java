@@ -635,7 +635,27 @@ public class AdminController {
         }
     }
 
-
+    /**
+     * Kiểm tra quyền admin
+     */
+    @GetMapping("/check")
+    public ResponseEntity<?> checkAdminAccess(Principal principal) {
+        try {
+            User currentUser = userRepository.findByUsername(principal.getName());
+            if (currentUser == null) {
+                return ResponseEntity.status(401).body(Map.of("error", "User not found"));
+            }
+            
+            boolean isAdmin = currentUser.getRole() == UserRole.ADMIN;
+            return ResponseEntity.ok(Map.of(
+                    "isAdmin", isAdmin, 
+                    "role", currentUser.getRole() != null ? currentUser.getRole().name() : "STUDENT"
+            ));
+        } catch (Exception e) {
+            log.error("Error checking admin access: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
 
 
 
