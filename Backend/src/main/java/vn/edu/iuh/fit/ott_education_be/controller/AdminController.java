@@ -441,6 +441,90 @@ public class AdminController {
         }
     }
 
+    // ==================== GROUP MANAGEMENT ====================
+
+    /**
+     * Lấy danh sách groups với phân trang
+     */
+    @GetMapping("/groups")
+    public ResponseEntity<?> getAllGroups(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String search) {
+        try {
+            Pageable pageable = PageRequest.of(page, size, Sort.by("createAt").descending());
+
+            Page<Group> groupsPage;
+            if (search != null && !search.isEmpty()) {
+                groupsPage = groupRepository.findByNameContainingIgnoreCase(search, pageable);
+            } else {
+                groupsPage = groupRepository.findAll(pageable);
+            }
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("groups", groupsPage.getContent().stream()
+                    .map(this::mapGroupToResponse)
+                    .collect(Collectors.toList()));
+            response.put("currentPage", groupsPage.getNumber());
+            response.put("totalItems", groupsPage.getTotalElements());
+            response.put("totalPages", groupsPage.getTotalPages());
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Error getting groups: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Lấy thông tin chi tiết một group
+     */
+    @GetMapping("/groups/{groupId}")
+    public ResponseEntity<?> getGroupById(@PathVariable String groupId) {
+        try {
+            Group group = groupRepository.findById(groupId).orElse(null);
+            if (group == null) {
+                return ResponseEntity.notFound().build();
+            }
+
+            Map<String, Object> groupInfo = mapGroupToResponse(group);
+
+            // Thêm thống kê messages trong group
+            long messageCount = messageRepository.countByGroupId(groupId);
+            groupInfo.put("messageCount", messageCount);
+
+            // Lấy danh sách members với thông tin chi tiết
+            List<Map<String, Object>> membersInfo = new ArrayList<>();
+            if (group.getMemberIds() != null) {
+                for (String memberId : group.getMemberIds()) {
+                    User user = userRepository.findById(memberId).orElse(null);
+                    if (user != null) {
+                        Map<String, Object> memberInfo = new HashMap<>();
+                        memberInfo.put("id", user.getId());
+                        memberInfo.put("email", user.getEmail());
+                        memberInfo.put("username", user.getUsername());
+                        memberInfo.put("firstName", user.getFirstName());
+                        memberInfo.put("lastName", user.getLastName());
+                        memberInfo.put("avatar", user.getAvatar());
+                        memberInfo.put("role", user.getRole());
+                        // Check if user is admin of this group
+                        if (group.getRoles() != null && group.getRoles().containsKey(memberId)) {
+                            memberInfo.put("groupRole", group.getRoles().get(memberId));
+                        } else {
+                            memberInfo.put("groupRole", Roles.MEMBER);
+                        }
+                        membersInfo.add(memberInfo);
+                    }
+                }
+            }
+            groupInfo.put("membersInfo", membersInfo);
+
+            return ResponseEntity.ok(groupInfo);
+        } catch (Exception e) {
+            log.error("Error getting group: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
 
 
 
