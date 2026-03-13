@@ -282,6 +282,34 @@ public class AdminController {
         }
     }
 
+    /**
+     * Lấy thông tin chi tiết một user
+     */
+    @GetMapping("/users/{userId}")
+    public ResponseEntity<?> getUserById(@PathVariable String userId) {
+        try {
+            User user = userRepository.findById(userId).orElse(null);
+            if (user == null) {
+                return ResponseEntity.notFound().build();
+            }
+
+            Map<String, Object> userInfo = mapUserToResponse(user);
+
+            // Thêm thống kê của user
+            long messageCount = messageRepository.countBySenderId(userId);
+            userInfo.put("messageCount", messageCount);
+
+            // Đếm số groups user tham gia
+            long groupCount = groupRepository.countByMemberIdsContaining(userId);
+            userInfo.put("groupCount", groupCount);
+
+            return ResponseEntity.ok(userInfo);
+        } catch (Exception e) {
+            log.error("Error getting user: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
 
 
 
