@@ -657,7 +657,26 @@ public class AdminController {
         }
     }
 
+    // ==================== HELPER METHODS ====================
 
+    private Map<String, Object> mapUserToResponse(User user) {
+        Map<String, Object> map = new HashMap<>();
+        map.put("id", user.getId());
+        map.put("email", user.getEmail());
+        map.put("username", user.getUsername());
+        map.put("firstName", user.getFirstName());
+        map.put("lastName", user.getLastName());
+        map.put("phone", user.getPhone());
+        map.put("avatar", user.getAvatar());
+        map.put("role", user.getRole() != null ? user.getRole().name() : "STUDENT");
+        map.put("status", user.getStatus() != null ? user.getStatus().name() : "ACTIVE");
+        map.put("activeStatus", user.getActiveStatus());
+        map.put("createdAt", user.getCreatedAt());
+        map.put("gender", user.getGender());
+        map.put("birthday", user.getBirthday());
+        map.put("friendsCount", user.getFriends() != null ? user.getFriends().size() : 0);
+        return map;
+    }
 
     private Map<String, Object> mapGroupToResponse(Group group) {
         Map<String, Object> map = new HashMap<>();
