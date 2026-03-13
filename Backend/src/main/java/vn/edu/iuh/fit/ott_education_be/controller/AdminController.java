@@ -549,7 +549,91 @@ public class AdminController {
         }
     }
 
- 
+    /**
+     * Gán giáo viên phụ trách cho group (thêm làm admin của group)
+     */
+    @PutMapping("/groups/{groupId}/assign-teacher")
+    public ResponseEntity<?> assignTeacherToGroup(
+            @PathVariable String groupId,
+            @RequestBody Map<String, String> request) {
+        try {
+            String teacherId = request.get("teacherId");
+            if (teacherId == null) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Teacher ID is required"));
+            }
+
+            Group group = groupRepository.findById(groupId).orElse(null);
+            if (group == null) {
+                return ResponseEntity.notFound().build();
+            }
+
+            User teacher = userRepository.findById(teacherId).orElse(null);
+            if (teacher == null) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Teacher not found"));
+            }
+
+            if (teacher.getRole() != UserRole.TEACHER && teacher.getRole() != UserRole.ADMIN) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "error", "User must have TEACHER or ADMIN role"
+                ));
+            }
+            
+            // Thêm teacher vào group nếu chưa có
+            if (group.getMemberIds() == null) {
+                group.setMemberIds(new ArrayList<>());
+            }
+            if (!group.getMemberIds().contains(teacherId)) {
+                group.getMemberIds().add(teacherId);
+            }
+
+            // Thêm teacher làm admin của group
+            if (group.getRoles() == null) {
+                group.setRoles(new HashMap<>());
+            }
+            group.getRoles().put(teacherId, Roles.ADMIN);
+
+            groupRepository.save(group);
+
+            log.info("Assigned teacher {} to group {}", teacherId, groupId);
+            return ResponseEntity.ok(Map.of(
+                    "message", "Teacher assigned successfully",
+                    "group", mapGroupToResponse(group)
+            ));
+        } catch (Exception e) {
+            log.error("Error assigning teacher to group: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Xóa thành viên khỏi group
+     */
+    @DeleteMapping("/groups/{groupId}/members/{memberId}")
+    public ResponseEntity<?> removeMemberFromGroup(
+            @PathVariable String groupId,
+            @PathVariable String memberId) {
+        try {
+            Group group = groupRepository.findById(groupId).orElse(null);
+            if (group == null) {
+                return ResponseEntity.notFound().build();
+            }
+            
+            if (group.getMemberIds() != null) {
+                group.getMemberIds().remove(memberId);
+            }
+            if (group.getRoles() != null) {
+                group.getRoles().remove(memberId);
+            }
+
+            groupRepository.save(group);
+
+            log.info("Removed member {} from group {}", memberId, groupId);
+            return ResponseEntity.ok(Map.of("message", "Member removed successfully"));
+        } catch (Exception e) {
+            log.error("Error removing member from group: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
 
 
 
