@@ -310,6 +310,42 @@ public class AdminController {
         }
     }
 
+    /**
+     * Cập nhật role của user
+     */
+    @PutMapping("/users/{userId}/role")
+    public ResponseEntity<?> updateUserRole(
+            @PathVariable String userId,
+            @RequestBody Map<String, String> request) {
+        try {
+            String newRole = request.get("role");
+            if (newRole == null) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Role is required"));
+            }
+
+            User user = userRepository.findById(userId).orElse(null);
+            if (user == null) {
+                return ResponseEntity.notFound().build();
+            }
+
+            UserRole role = UserRole.valueOf(newRole.toUpperCase());
+            user.setRole(role);
+            userRepository.save(user);
+
+            log.info("Updated role for user {} to {}", userId, role);
+            return ResponseEntity.ok(Map.of(
+                    "message", "Role updated successfully",
+                    "user", mapUserToResponse(user)
+            ));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Invalid role. Must be ADMIN, TEACHER, or STUDENT"));
+        } catch (Exception e) {
+            log.error("Error updating user role: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+
 
 
 
