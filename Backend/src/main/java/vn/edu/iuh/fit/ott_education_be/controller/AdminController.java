@@ -526,6 +526,30 @@ public class AdminController {
         }
     }
 
+    /**
+     * Xóa group
+     */
+    @DeleteMapping("/groups/{groupId}")
+    public ResponseEntity<?> deleteGroup(@PathVariable String groupId) {
+        try {
+            Group group = groupRepository.findById(groupId).orElse(null);
+            if (group == null) {
+                return ResponseEntity.notFound().build();
+            }
+
+            // Xóa tất cả messages trong group trước
+            messageRepository.deleteByGroupId(groupId);
+
+            groupRepository.deleteById(groupId);
+            log.info("Deleted group {}", groupId);
+            return ResponseEntity.ok(Map.of("message", "Group deleted successfully"));
+        } catch (Exception e) {
+            log.error("Error deleting group: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+ 
 
 
 
