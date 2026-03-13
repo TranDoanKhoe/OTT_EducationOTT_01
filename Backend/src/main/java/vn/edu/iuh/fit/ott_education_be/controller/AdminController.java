@@ -385,6 +385,61 @@ public class AdminController {
         }
     }
 
+    /**
+     * Reset password cho user
+     */
+    @PutMapping("/users/{userId}/reset-password")
+    public ResponseEntity<?> resetUserPassword(
+            @PathVariable String userId,
+            @RequestBody Map<String, String> request) {
+        try {
+            String newPassword = request.get("newPassword");
+            if (newPassword == null || newPassword.length() < 8) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "error", "Password must be at least 8 characters"
+                ));
+            }
+
+            User user = userRepository.findById(userId).orElse(null);
+            if (user == null) {
+                return ResponseEntity.notFound().build();
+            }
+
+            user.setPassword(passwordEncoder.encode(newPassword));
+            userRepository.save(user);
+
+            log.info("Password reset for user {}", userId);
+            return ResponseEntity.ok(Map.of("message", "Password reset successfully"));
+        } catch (Exception e) {
+            log.error("Error resetting password: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Xóa user
+     */
+    @DeleteMapping("/users/{userId}")
+    public ResponseEntity<?> deleteUser(@PathVariable String userId) {
+        try {
+            User user = userRepository.findById(userId).orElse(null);
+            if (user == null) {
+                return ResponseEntity.notFound().build();
+            }
+            
+            // Không cho phép xóa admin
+            if (user.getRole() == UserRole.ADMIN) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Cannot delete admin user"));
+            }
+
+            userRepository.deleteById(userId);
+            log.info("Deleted user {}", userId);
+            return ResponseEntity.ok(Map.of("message", "User deleted successfully"));
+        } catch (Exception e) {
+            log.error("Error deleting user: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
 
 
 
