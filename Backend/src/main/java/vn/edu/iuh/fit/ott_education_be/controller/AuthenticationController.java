@@ -1,0 +1,68 @@
+
+package vn.edu.iuh.fit.ott_education_be.controller;
+
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.swagger.v3.oas.annotations.Operation;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import vn.edu.iuh.fit.ott_education_be.common.UserRole;
+import vn.edu.iuh.fit.ott_education_be.controller.request.SignInRequest;
+import vn.edu.iuh.fit.ott_education_be.controller.request.UserRegisterRequest;
+import vn.edu.iuh.fit.ott_education_be.controller.request.VerifyEmailRequest;
+import vn.edu.iuh.fit.ott_education_be.controller.response.RegisterResponse;
+import vn.edu.iuh.fit.ott_education_be.controller.response.SignInResponse;
+import vn.edu.iuh.fit.ott_education_be.exception.UnauthorizedException;
+import vn.edu.iuh.fit.ott_education_be.model.User;
+import vn.edu.iuh.fit.ott_education_be.repository.UserRepository;
+import vn.edu.iuh.fit.ott_education_be.service.AuthenticationService;
+import vn.edu.iuh.fit.ott_education_be.service.UserService;
+
+import org.springframework.http.MediaType;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.security.Principal;
+import java.util.Map;
+import java.util.regex.Pattern;
+
+@RestController
+@Slf4j(topic = "AUTHENTICATION-CONTROLLER")
+@RequiredArgsConstructor
+@RequestMapping("/auth")
+public class AuthenticationController {
+    private static final Pattern EMAIL_PATTERN = Pattern.compile("^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
+
+    private final AuthenticationService authenticationService;
+    private final UserService userService;
+    private final UserRepository userRepository;
+    private final ObjectMapper objectMapper;
+
+    @PostMapping("/login")
+    @Operation(summary = "Đăng nhập vào ứng dụng", description = "Endpoint này cho phép người dùng đăng nhập vào ứng dụng.")
+    public SignInResponse login(@RequestBody SignInRequest request) {
+        log.info("Login request: {}", request);
+
+        return authenticationService.getAccessToken(request);
+    }
+
+    @PostMapping("/register")
+    @Operation(summary = "Đăng ký tài khoản mới", description = "Endpoint này cho phép người dùng đăng ký một tài khoản mới.")
+    public RegisterResponse register(@RequestBody UserRegisterRequest request) {
+        log.info("Register request: {}", request);
+
+        return userService.register(request);
+    }
+
+  
+ 
+  
+    
+}
