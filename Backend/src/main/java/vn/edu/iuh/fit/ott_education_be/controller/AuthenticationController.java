@@ -134,7 +134,64 @@ public class AuthenticationController {
         }
     }
 
- 
+    @PostMapping(value = "/verify-emali", consumes = {MediaType.APPLICATION_JSON_VALUE, MediaType.TEXT_PLAIN_VALUE})
+    public ResponseEntity<Map<String, String>> sendVerificationEmail(@RequestBody String payload) {
+        String email = payload;
+
+        if (payload != null && payload.trim().startsWith("{")) {
+            try {
+                JsonNode root = objectMapper.readTree(payload);
+                JsonNode emailNode = root.get("email");
+                email = emailNode == null ? null : emailNode.asText();
+            } catch (Exception ignored) {
+            }
+        }
+
+        if (email != null) {
+            email = email.replace("\"", "").trim();
+        }
+
+        if (email == null || email.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Email không hợp lệ"));
+        }
+
+        email = normalizeEmail(email);
+        if (!isValidEmail(email)) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Email không hợp lệ"));
+        }
+
+        log.info("Đang gửi email xác thực đến: {}", email);
+        userService.sendVerificationEmail(email);
+        return ResponseEntity.ok(Map.of("message", "Đã tiếp nhận yêu cầu gửi mã xác thực"));
+    }
+
+    private String normalizeEmail(String email) {
+        if (email == null) return null;
+        return email.trim().toLowerCase();
+    }
+
+    private boolean isValidEmail(String email) {
+        return email != null && EMAIL_PATTERN.matcher(email).matches();
+    }
+
+    private String normalizePhone(String phone) {
+        if (phone == null) return null;
+
+        String cleaned = phone.replaceAll("\\s+", "").trim();
+        if (cleaned.startsWith("+840")) {
+            return "+84" + cleaned.substring(4);
+        }
+        if (cleaned.startsWith("84") && !cleaned.startsWith("+84")) {
+            return "+" + cleaned;
+        }
+        return cleaned;
+    }
+
+    private boolean isValidPhone(String phone) {
+        if (phone == null || phone.isBlank()) return false;
+        return phone.matches("^0\\d{9}$") || phone.matches("^\\+84\\d{9}$");
+    }
+
   
     
 }
