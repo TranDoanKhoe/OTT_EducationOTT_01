@@ -230,5 +230,22 @@ public class AuthenticationController {
         }
     }
 
-    
+    @GetMapping("/fix-admin")
+    @Operation(summary = "Fix admin role", description = "Cập nhật role ADMIN cho user admin")
+    public ResponseEntity<Map<String, String>> fixAdminRole() {
+        try {
+            User admin = userRepository.findByUsername("admin");
+            if (admin != null) {
+                admin.setRole(UserRole.ADMIN);
+                userRepository.save(admin);
+                return ResponseEntity.ok(Map.of("message", "Admin role updated successfully", "role", "ADMIN"));
+            }
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "Admin user not found"));
+        } catch (Exception e) {
+            log.error("Error fixing admin role: {}", e.getMessage());
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", e.getMessage()));
+        }
+    }
 }
