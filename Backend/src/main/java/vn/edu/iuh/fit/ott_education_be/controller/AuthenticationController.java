@@ -134,7 +134,7 @@ public class AuthenticationController {
         }
     }
 
-    @PostMapping(value = "/verify-emali", consumes = {MediaType.APPLICATION_JSON_VALUE, MediaType.TEXT_PLAIN_VALUE})
+    @PostMapping(value = "/verify-email", consumes = {MediaType.APPLICATION_JSON_VALUE, MediaType.TEXT_PLAIN_VALUE})
     public ResponseEntity<Map<String, String>> sendVerificationEmail(@RequestBody String payload) {
         String email = payload;
 
@@ -192,6 +192,14 @@ public class AuthenticationController {
         return phone.matches("^0\\d{9}$") || phone.matches("^\\+84\\d{9}$");
     }
 
+    @PostMapping("/verify-email-code")
+    public ResponseEntity<RegisterResponse> verifyEmail(@RequestBody VerifyEmailRequest request) {
+        log.info("Đang xác thực email với mã: {}", request.getCode());
+        RegisterResponse response = userService.verifyEmail(request);
+        return new ResponseEntity<>(response, HttpStatus.OK);
+    }
+
   
+
     
 }
