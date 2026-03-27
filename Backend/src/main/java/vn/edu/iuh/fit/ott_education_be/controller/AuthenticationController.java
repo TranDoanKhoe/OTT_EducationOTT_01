@@ -199,7 +199,36 @@ public class AuthenticationController {
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
-  
+    @GetMapping("/check-role")
+    @Operation(summary = "Kiểm tra quyền của user hiện tại", description = "Endpoint này cho phép kiểm tra user có phải là admin hay không")
+    public ResponseEntity<Map<String, Object>> checkUserRole(Principal principal) {
+        try {
+            if (principal == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(Map.of("error", "Unauthorized", "isAdmin", false));
+            }
+            
+            User currentUser = userRepository.findByUsername(principal.getName());
+            if (currentUser == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(Map.of("error", "User not found", "isAdmin", false));
+            }
+            
+            boolean isAdmin = currentUser.getRole() == UserRole.ADMIN;
+            String role = currentUser.getRole() != null ? currentUser.getRole().name() : "STUDENT";
+            
+            return ResponseEntity.ok(Map.of(
+                    "isAdmin", isAdmin,
+                    "role", role,
+                    "userId", currentUser.getId(),
+                    "username", currentUser.getUsername()
+            ));
+        } catch (Exception e) {
+            log.error("Error checking user role: {}", e.getMessage());
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", e.getMessage(), "isAdmin", false));
+        }
+    }
 
     
 }
