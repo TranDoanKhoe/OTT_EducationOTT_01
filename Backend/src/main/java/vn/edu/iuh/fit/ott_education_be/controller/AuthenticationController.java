@@ -102,7 +102,38 @@ public class AuthenticationController {
         }
     }
 
-   
+    @PostMapping("/reset-password-firebase-phone")
+    public ResponseEntity<Map<String, String>> resetPasswordByFirebasePhone(@RequestBody Map<String, String> request) {
+        String phone = normalizePhone(request.get("phone"));
+        String idToken = request.get("idToken");
+        String password = request.get("password");
+
+        if (!isValidPhone(phone)) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Số điện thoại không hợp lệ"));
+        }
+
+        if (idToken == null || idToken.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Thiếu Firebase ID token"));
+        }
+
+        if (password == null || password.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Mật khẩu mới không hợp lệ"));
+        }
+
+        try {
+            userService.resetPasswordByFirebasePhone(phone, idToken, password);
+            return ResponseEntity.ok(Map.of("message", "Đặt lại mật khẩu thành công"));
+        } catch (UnauthorizedException | ResponseStatusException e) {
+            log.error("Lỗi xác thực Firebase OTP cho {}: {}", phone, e.getMessage());
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Lỗi không mong đợi khi đặt lại mật khẩu bằng Firebase OTP: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Đặt lại mật khẩu thất bại"));
+        }
+    }
+
  
   
     
