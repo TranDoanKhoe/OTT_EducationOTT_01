@@ -61,7 +61,29 @@ public class AuthenticationController {
         return userService.register(request);
     }
 
-  
+    @PostMapping("/forgot-password")
+    public ResponseEntity<Map<String, String>> requestResetPassword(@RequestBody Map<String, String> request){
+        String email = normalizeEmail(request.get("email"));
+        if (!isValidEmail(email)) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Email không hợp lệ"));
+        }
+
+        log.info("Request reset password for email: {}", email);
+
+        try{
+            userService.requestPasswordReset(email);
+            return ResponseEntity.ok(Map.of("message", "Đã gửi link đặt lại mật khẩu đến email của bạn"));
+        }catch (ResponseStatusException e) {
+            log.error("Lỗi khi xử lý yêu cầu đặt lại mật khẩu cho email {}: {}", email, e.getMessage());
+            return ResponseEntity.status(e.getStatusCode())
+                    .body(Map.of("error", e.getReason()));
+        } catch (Exception e) {
+            log.error("Lỗi không mong đợi khi xử lý yêu cầu đặt lại mật khẩu: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Gửi link đặt lại thất bại"));
+        }
+    }
+
  
   
     
