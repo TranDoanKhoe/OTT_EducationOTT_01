@@ -84,6 +84,25 @@ public class AuthenticationController {
         }
     }
 
+    @PostMapping("/reset-password")
+    public ResponseEntity<Map<String, String>> resetPassword(@RequestBody Map<String, String> request) {
+        String code = request.get("code");
+        String password = request.get("password");
+        try {
+            userService.resetPassword(code, password);
+            return ResponseEntity.ok(Map.of("message", "Đặt lại mật khẩu thành công"));
+        } catch (UnauthorizedException | ResponseStatusException e) {
+            log.error("Lỗi khi đặt lại mật khẩu: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Lỗi không mong đợi khi đặt lại mật khẩu: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Đặt lại mật khẩu thất bại"));
+        }
+    }
+
+   
  
   
     
