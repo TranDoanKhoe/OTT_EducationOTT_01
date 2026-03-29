@@ -82,6 +82,8 @@ import {
 
 const AI_ASSISTANT_ID = 'ai-assistant-bot';
 
+// Home page hosts the profile and document manager entry points.
+
 // Error Boundary Component
 class ErrorBoundary extends Component {
     state = { hasError: false, error: null };

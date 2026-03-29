@@ -17,6 +17,8 @@ import vn.edu.iuh.fit.ott_education_be.service.ResourceService;
 import java.util.List;
 import java.util.Map;
 
+// REST endpoints for document management and resource sharing.
+
 @RestController
 @RequiredArgsConstructor
 @Slf4j(topic = "RESOURCE-CONTROLLER")

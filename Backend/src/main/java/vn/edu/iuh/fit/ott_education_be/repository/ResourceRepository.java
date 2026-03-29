@@ -6,6 +6,8 @@ import vn.edu.iuh.fit.ott_education_be.model.Resource;
 
 import java.util.List;
 
+// Mongo repository for resource lookup, folder trees, and sharing queries.
+
 @Repository
 public interface ResourceRepository extends MongoRepository<Resource, String> {
     List<Resource> findByUserIdOrderByCreatedAtDesc(String userId);

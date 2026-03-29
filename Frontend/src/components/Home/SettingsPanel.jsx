@@ -2,6 +2,8 @@ import React from 'react';
 import { updatePassword } from '../../api/user';
 import { toast } from 'react-toastify';
 
+// Password settings section belongs to the profile management flow.
+
 const SettingsPanel = ({ open, onClose }) => {
     const handleUpdatePassword = async () => {
         const oldPassword = document.getElementById('currentPassword').value;

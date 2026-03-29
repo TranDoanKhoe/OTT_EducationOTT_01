@@ -7,6 +7,8 @@ import { cancelFriendRequest } from '../../api/user';
 import ProfileModal from './ProfileModal';
 import { toast } from 'react-toastify';
 
+// Contact list opens the profile modal for contact details and quick actions.
+
 const ContactList = ({
     contacts,
     selectedContact,
