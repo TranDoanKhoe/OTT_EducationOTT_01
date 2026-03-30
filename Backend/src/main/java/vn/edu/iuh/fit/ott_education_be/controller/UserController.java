@@ -16,6 +16,8 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
+// REST endpoints for profile management and user account actions.
+
 @RestController
 @Slf4j(topic = "USER-CONTROLLER")
 @RequiredArgsConstructor
