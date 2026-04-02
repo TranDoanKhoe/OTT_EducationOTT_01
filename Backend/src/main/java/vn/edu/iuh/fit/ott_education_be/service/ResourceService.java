@@ -6,6 +6,8 @@ import vn.edu.iuh.fit.ott_education_be.model.Resource;
 import java.util.List;
 import java.util.Map;
 
+// Document management service contract used by the controller and implementation.
+
 public interface ResourceService {
     List<Resource> getResourcesByUserId(String userId);
 
