@@ -1,0 +1,6 @@
+# Ignore assignment folder
+/PhanCong/
+
+# Ignore newly added OTT folders
+/OTT_Education_BE/
+/OTT_Education_FE/
