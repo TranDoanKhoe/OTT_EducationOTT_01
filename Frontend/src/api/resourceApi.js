@@ -2,6 +2,8 @@ import axios from 'axios';
 
 const API_BASE_URL = '/api/resources';
 
+// Centralized API helpers for document manager features.
+
 // Lấy danh sách tài liệu của user
 export const getResources = async (token, category = 'all') => {
     try {

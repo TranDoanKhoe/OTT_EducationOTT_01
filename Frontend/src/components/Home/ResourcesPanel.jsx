@@ -40,6 +40,7 @@ import { sendMessage as sendChatMessage } from '../../api/messageApi';
 import { fetchFriendsList } from '../../api/user';
 import { fetchUserGroups } from '../../api/groupApi';
 
+// UI container for browsing, uploading, sharing, and previewing user resources.
 const ResourcesPanel = () => {
     const [viewMode, setViewMode] = useState('grid');
     const [searchQuery, setSearchQuery] = useState('');

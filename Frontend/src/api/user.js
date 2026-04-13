@@ -20,6 +20,7 @@ const AUTH_BASE_URL = BACKEND_BASE_URL || API_BASE_URL;
 
 import axios from 'axios';
 
+// User/account API helpers used by profile, auth-related, and social flows.
 const fetchWithTimeout = async (url, options = {}, timeoutMs = 15000) => {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);

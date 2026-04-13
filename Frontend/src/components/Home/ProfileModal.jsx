@@ -15,6 +15,7 @@ const getGenderLabel = (gender) => {
     }
 };
 
+// Displays profile details and supports avatar/profile updates for the current user.
 const ProfileModal = ({
     open,
     onClose,

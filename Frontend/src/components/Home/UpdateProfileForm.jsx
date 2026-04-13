@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { toast } from 'react-toastify';
 import { updateUserProfile } from '../../api/user';
 
+// Form section used by profile modal to submit user profile updates.
 const UpdateProfileForm = ({ profileData, onSubmit, onCancel }) => {
     const [firstName, setFirstName] = useState(profileData?.firstName || '');
     const [lastName, setLastName] = useState(profileData?.lastName || '');
