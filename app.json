@@ -7,9 +7,20 @@
     "icon": "./assets/images/icon.png",
     "scheme": "otteducationmobile",
     "userInterfaceStyle": "automatic",
+    "extra": {
+      "baseUrl": "https://ott-education-be.onrender.com/api",
+      "router": {},
+      "eas": {
+        "projectId": "5d005f03-241f-481b-943a-5eac64207d66"
+      }
+    },
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "Ứng dụng cần quyền truy cập microphone để thực hiện cuộc gọi thoại.",
+        "NSCameraUsageDescription": "Ứng dụng cần quyền truy cập camera để thực hiện cuộc gọi video."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -19,7 +30,15 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.trandoankhoe.OTT_Education_Mobile",
+      "permissions": [
+        "RECORD_AUDIO",
+        "CAMERA",
+        "MODIFY_AUDIO_SETTINGS",
+        "BLUETOOTH",
+        "BLUETOOTH_CONNECT"
+      ]
     },
     "web": {
       "output": "static",
@@ -38,11 +57,13 @@
             "backgroundColor": "#000000"
           }
         }
-      ]
+      ],
+      "expo-video"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "owner": "trandoankhoe"
   }
 }

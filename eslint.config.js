@@ -5,6 +5,12 @@ const expoConfig = require('eslint-config-expo/flat');
 module.exports = defineConfig([
   expoConfig,
   {
-    ignores: ['dist/*'],
+    ignores: [
+      'dist/*',
+      '.expo/**',
+      'src/navigation/**',
+      'src/screens/**',
+      'src/firebase.js',
+    ],
   },
 ]);
