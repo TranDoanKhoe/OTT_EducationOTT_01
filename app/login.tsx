@@ -1,6 +1,6 @@
 import { SafeAreaView } from 'react-native-safe-area-context';
 // @ts-nocheck
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View,
     Text,
@@ -38,6 +38,15 @@ export default function Login() {
     const [password, setPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
+    const [rememberMe, setRememberMe] = useState(false);
+
+    useEffect(() => {
+        const savedUsername = localStorage.getItem('savedUsername');
+        if (savedUsername) {
+            setUsername(savedUsername);
+            setRememberMe(true);
+        }
+    }, []);
 
     const handleLogin = async () => {
         if (!username || !password) {
@@ -113,6 +122,12 @@ export default function Login() {
             localStorage.setItem('token', data.accessToken);
             localStorage.setItem('userRole', data.role || 'STUDENT');
 
+            if (rememberMe) {
+                localStorage.setItem('savedUsername', username);
+            } else {
+                localStorage.removeItem('savedUsername');
+            }
+
             // Navigate to main tabs
             router.replace('/(tabs)');
         } catch (error) {
@@ -171,12 +186,33 @@ export default function Login() {
                         </View>
                     </View>
 
-                    <TouchableOpacity
-                        style={styles.forgotBtn}
-                        onPress={() => router.push('/forgot-password')}
-                    >
-                        <Text style={styles.forgotText}>Quên mật khẩu?</Text>
-                    </TouchableOpacity>
+                    <View style={styles.rememberForgotRow}>
+                        <TouchableOpacity
+                            style={styles.rememberMeContainer}
+                            onPress={() => setRememberMe(!rememberMe)}
+                            activeOpacity={0.7}
+                        >
+                            <View
+                                style={[
+                                    styles.checkbox,
+                                    rememberMe && styles.checkboxChecked,
+                                ]}
+                            >
+                                {rememberMe && (
+                                    <Text style={styles.checkmark}>✓</Text>
+                                )}
+                            </View>
+                            <Text style={styles.rememberMeText}>
+                                Ghi nhớ đăng nhập
+                            </Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            onPress={() => router.push('/forgot-password')}
+                        >
+                            <Text style={styles.forgotText}>Quên mật khẩu?</Text>
+                        </TouchableOpacity>
+                    </View>
 
                     <TouchableOpacity
                         style={styles.loginBtn}
@@ -283,12 +319,41 @@ const styles = StyleSheet.create({
         color: '#6b7280',
         fontSize: 14,
     },
-    forgotBtn: {
-        alignSelf: 'flex-end',
+    rememberForgotRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
         marginBottom: 24,
     },
+    rememberMeContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    checkbox: {
+        width: 20,
+        height: 20,
+        borderWidth: 2,
+        borderColor: '#d1d5db',
+        borderRadius: 4,
+        marginRight: 8,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    checkboxChecked: {
+        backgroundColor: '#10b981',
+        borderColor: '#10b981',
+    },
+    checkmark: {
+        color: '#fff',
+        fontSize: 13,
+        fontWeight: 'bold',
+    },
+    rememberMeText: {
+        fontSize: 14,
+        color: '#374151',
+    },
     forgotText: {
-        color: '#10b981', // emerald-500
+        color: '#10b981',
         fontSize: 14,
         fontWeight: '500',
     },
