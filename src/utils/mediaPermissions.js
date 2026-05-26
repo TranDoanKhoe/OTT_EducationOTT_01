@@ -1,156 +1,146 @@
-import { Platform } from 'react-native';
+// Media permissions helper for React Native
+// Đồng bộ với Web mediaPermissions.js
+import { PermissionsAndroid, Platform, Alert } from 'react-native';
 
 /**
- * Check if WebRTC is supported.
- * On React Native, this is handled by react-native-webrtc.
+ * Request camera and microphone permissions
+ * @param {boolean} needsVideo - Whether video permission is needed
+ * @returns {Promise<boolean>} - True if permissions granted
  */
-export const checkWebRTCSupport = () => {
-    if (Platform.OS !== 'web') return true; // react-native-webrtc handles it
-    return !!(
-        typeof navigator !== 'undefined' &&
-        navigator.mediaDevices &&
-        navigator.mediaDevices.getUserMedia &&
-        typeof window !== 'undefined' &&
-        window.RTCPeerConnection
+export const requestMediaPermissions = async (needsVideo = true) => {
+    if (Platform.OS === 'ios') {
+        // iOS permissions are handled automatically by react-native-webrtc
+        // when getUserMedia is called
+        return true;
+    }
+
+    if (Platform.OS === 'android') {
+        try {
+            const permissions = [PermissionsAndroid.PERMISSIONS.RECORD_AUDIO];
+            
+            if (needsVideo) {
+                permissions.push(PermissionsAndroid.PERMISSIONS.CAMERA);
+            }
+
+            const results = await PermissionsAndroid.requestMultiple(permissions);
+
+            const audioGranted = results[PermissionsAndroid.PERMISSIONS.RECORD_AUDIO] === 
+                PermissionsAndroid.RESULTS.GRANTED;
+            
+            const videoGranted = !needsVideo || 
+                results[PermissionsAndroid.PERMISSIONS.CAMERA] === 
+                PermissionsAndroid.RESULTS.GRANTED;
+
+            if (!audioGranted || !videoGranted) {
+                Alert.alert(
+                    'Cần cấp quyền',
+                    'Vui lòng cấp quyền truy cập microphone và camera trong cài đặt để thực hiện cuộc gọi.',
+                    [
+                        { text: 'Hủy', style: 'cancel' },
+                        { text: 'Mở cài đặt', onPress: () => {
+                            // Open app settings
+                            if (Platform.OS === 'android') {
+                                const { Linking } = require('react-native');
+                                Linking.openSettings();
+                            }
+                        }},
+                    ]
+                );
+                return false;
+            }
+
+            return true;
+        } catch (error) {
+            console.error('Error requesting permissions:', error);
+            return false;
+        }
+    }
+
+    return true;
+};
+
+/**
+ * Check if media permissions are granted
+ * @param {boolean} needsVideo - Whether to check video permission
+ * @returns {Promise<boolean>} - True if permissions granted
+ */
+export const checkMediaPermissions = async (needsVideo = true) => {
+    if (Platform.OS === 'ios') {
+        // iOS doesn't provide a way to check permissions before requesting
+        return true;
+    }
+
+    if (Platform.OS === 'android') {
+        try {
+            const audioGranted = await PermissionsAndroid.check(
+                PermissionsAndroid.PERMISSIONS.RECORD_AUDIO
+            );
+
+            if (!needsVideo) {
+                return audioGranted;
+            }
+
+            const videoGranted = await PermissionsAndroid.check(
+                PermissionsAndroid.PERMISSIONS.CAMERA
+            );
+
+            return audioGranted && videoGranted;
+        } catch (error) {
+            console.error('Error checking permissions:', error);
+            return false;
+        }
+    }
+
+    return true;
+};
+
+/**
+ * Show permission denied alert
+ * @param {string} type - 'audio' or 'video'
+ */
+export const showPermissionDeniedAlert = (type = 'audio') => {
+    const message = type === 'video'
+        ? 'Bạn cần cấp quyền truy cập camera và microphone để thực hiện cuộc gọi video.'
+        : 'Bạn cần cấp quyền truy cập microphone để thực hiện cuộc gọi thoại.';
+
+    Alert.alert(
+        'Quyền bị từ chối',
+        message,
+        [
+            { text: 'Hủy', style: 'cancel' },
+            { text: 'Mở cài đặt', onPress: () => {
+                if (Platform.OS === 'android') {
+                    const { Linking } = require('react-native');
+                    Linking.openSettings();
+                }
+            }},
+        ]
     );
 };
 
 /**
- * Check current permission status for media devices.
- * On React Native, use expo-av or react-native-webrtc permissions instead.
+ * Handle media permission errors
+ * @param {Error} error - The error object
  */
-export const checkMediaPermissions = async (video = false) => {
-    if (Platform.OS !== 'web') {
-        // On native, permissions are handled by expo-av / react-native-webrtc
-        return { microphone: 'prompt', camera: 'prompt' };
-    }
+export const handleMediaPermissionError = (error) => {
+    console.error('Media permission error:', error);
 
-    if (
-        typeof navigator === 'undefined' ||
-        !navigator.permissions ||
-        !navigator.permissions.query
-    ) {
-        return { microphone: 'prompt', camera: 'prompt' };
-    }
-
-    try {
-        const micPermission = await navigator.permissions.query({
-            name: 'microphone',
-        });
-        let cameraPermission = { state: 'prompt' };
-
-        if (video) {
-            try {
-                cameraPermission = await navigator.permissions.query({
-                    name: 'camera',
-                });
-            } catch {
-                console.warn('Camera permission query not supported');
-            }
-        }
-
-        return {
-            microphone: micPermission.state,
-            camera: cameraPermission.state,
-        };
-    } catch (error) {
-        console.warn('Permission query not supported:', error);
-        return { microphone: 'prompt', camera: 'prompt' };
-    }
-};
-
-/**
- * Request permissions with better UX.
- * On React Native, use expo-av or react-native-webrtc permissions instead.
- */
-export const requestMediaPermissions = async (video = false) => {
-    if (Platform.OS !== 'web') {
-        // On native, permissions are handled by expo-av / react-native-webrtc
-        return { granted: true, error: null };
-    }
-
-    try {
-        if (
-            typeof navigator === 'undefined' ||
-            !navigator?.mediaDevices?.getUserMedia
-        ) {
-            return {
-                granted: false,
-                error: 'Trình duyệt không hỗ trợ mediaDevices/getUserMedia.',
-            };
-        }
-
-        const constraints = {
-            audio: true,
-            video: video ? { width: 1280, height: 720 } : false,
-        };
-
-        const stream = await navigator.mediaDevices.getUserMedia(constraints);
-        stream.getTracks().forEach((track) => track.stop());
-
-        return { granted: true, error: null };
-    } catch (error) {
-        let errorMessage = 'Unknown error';
-
-        if (
-            error.name === 'NotAllowedError' ||
-            error.name === 'PermissionDeniedError'
-        ) {
-            errorMessage =
-                'Bạn đã từ chối quyền truy cập. Vui lòng bật lại trong cài đặt trình duyệt.';
-        } else if (
-            error.name === 'NotFoundError' ||
-            error.name === 'DevicesNotFoundError'
-        ) {
-            errorMessage =
-                'Không tìm thấy microphone/camera. Vui lòng kiểm tra thiết bị.';
-        } else if (
-            error.name === 'NotReadableError' ||
-            error.name === 'TrackStartError'
-        ) {
-            errorMessage = 'Thiết bị đang được sử dụng bởi ứng dụng khác.';
-        } else if (error.name === 'OverconstrainedError') {
-            errorMessage =
-                'Thiết bị không đáp ứng yêu cầu. Hãy thử lại với cài đặt khác.';
-        } else if (error.name === 'SecurityError') {
-            errorMessage =
-                'Lỗi bảo mật. Vui lòng sử dụng HTTPS hoặc localhost.';
-        }
-
-        return { granted: false, error: errorMessage };
-    }
-};
-
-/**
- * Get user-friendly device names.
- * On React Native, this is not applicable.
- */
-export const getMediaDevices = async () => {
-    if (Platform.OS !== 'web') {
-        return { audioInputs: [], videoInputs: [] };
-    }
-
-    try {
-        if (
-            typeof navigator === 'undefined' ||
-            !navigator.mediaDevices ||
-            !navigator.mediaDevices.enumerateDevices
-        ) {
-            return { audioInputs: [], videoInputs: [] };
-        }
-
-        const devices = await navigator.mediaDevices.enumerateDevices();
-
-        const audioInputs = devices.filter(
-            (device) => device.kind === 'audioinput',
+    if (error.name === 'NotAllowedError' || error.message?.includes('denied')) {
+        showPermissionDeniedAlert('video');
+    } else if (error.name === 'NotFoundError') {
+        Alert.alert(
+            'Thiết bị không tìm thấy',
+            'Không tìm thấy microphone hoặc camera. Vui lòng kiểm tra thiết bị của bạn.'
         );
-        const videoInputs = devices.filter(
-            (device) => device.kind === 'videoinput',
+    } else if (error.name === 'NotReadableError') {
+        Alert.alert(
+            'Thiết bị đang bận',
+            'Thiết bị đang được sử dụng bởi ứng dụng khác. Vui lòng đóng ứng dụng đó và thử lại.'
         );
-
-        return { audioInputs, videoInputs };
-    } catch (error) {
-        console.error('Error enumerating devices:', error);
-        return { audioInputs: [], videoInputs: [] };
+    } else {
+        Alert.alert(
+            'Lỗi',
+            `Không thể truy cập thiết bị: ${error.message || 'Unknown error'}`
+        );
     }
 };

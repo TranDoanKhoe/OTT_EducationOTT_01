@@ -1,3 +1,4 @@
+import { getAccessTokenSync } from '../utils/authHeader';
 import axios from 'axios';
 
 const BACKEND_URL =
@@ -9,6 +10,9 @@ const API_URL = (
     process.env.EXPO_PUBLIC_API_URL ||
     `${BACKEND_URL}/api`
 ).replace(/\/$/, '');
+
+// Helper to get token
+const getToken = () => getAccessTokenSync();
 
 // Group Notes APIs
 export const getGroupNotes = async (groupId, token) => {

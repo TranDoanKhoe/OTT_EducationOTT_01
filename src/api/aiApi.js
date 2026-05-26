@@ -1,3 +1,4 @@
+import { getAccessTokenSync } from '../utils/authHeader';
 import axios from 'axios';
 
 // Backend dùng /ai không phải /api/ai
@@ -7,8 +8,11 @@ const BACKEND_URL =
 const API_BASE_URL = `${BACKEND_URL}/ai`;
 const AI_REQUEST_TIMEOUT_MS = 45000;
 
+// Helper to get token
+const getToken = () => getAccessTokenSync();
+
 const authHeaders = (token) => ({
-    Authorization: `Bearer ${token}`,
+    Authorization: `Bearer ${token || getToken()}`,
 });
 
 const unwrapPayload = (payload) => {

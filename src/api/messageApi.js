@@ -1,4 +1,6 @@
 import localStorage from '../utils/localStoragePolyfill';
+import { getAccessTokenSync } from '../utils/authHeader';
+import eventEmitter from '../utils/eventEmitter';
 import axios from 'axios';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
@@ -15,6 +17,51 @@ const SOCKJS_URL =
 let stompClient = null;
 let _globalCallSignalHandler = null;
 let _globalTypingHandler = null;
+
+// Store connection params for reconnect after token refresh
+let _lastConnectionParams = null;
+
+// Helper to get token (try authHeader first, fallback to localStorage)
+const getToken = () => {
+    const token = getAccessTokenSync();
+    if (token) return token;
+    return localStorage.getItem('accessToken') || localStorage.getItem('token');
+};
+
+// Listen for token refresh events to reconnect WebSocket
+eventEmitter.on('auth:tokenRefreshed', (event) => {
+    console.log('🔄 Token refreshed, reconnecting WebSocket...');
+    if (_lastConnectionParams && stompClient) {
+        // Disconnect old connection
+        disconnectWebSocket();
+        // Reconnect with new token
+        const newToken = event?.token || getToken();
+        if (newToken && _lastConnectionParams.userId) {
+            connectWebSocket(
+                newToken,
+                _lastConnectionParams.userId,
+                _lastConnectionParams.onMessageCallback,
+                _lastConnectionParams.onDeleteCallback,
+                _lastConnectionParams.onRecallCallback,
+                _lastConnectionParams.onPinCallback,
+                _lastConnectionParams.onUnpinCallback,
+                _lastConnectionParams.groupIds,
+                _lastConnectionParams.onFriendRequestCallback,
+                _lastConnectionParams.onEditCallback,
+                _lastConnectionParams.onStatusChangeCallback,
+                _lastConnectionParams.onCallSignalCallback,
+                _lastConnectionParams.onReadCallback,
+                _lastConnectionParams.onGroupCreateCallback,
+                _lastConnectionParams.onGroupUpdateCallback,
+                _lastConnectionParams.onGroupDeleteCallback,
+                _lastConnectionParams.onGroupInviteCallback,
+                _lastConnectionParams.onFriendRequestAcceptedCallback,
+                _lastConnectionParams.onFriendRequestRejectedCallback,
+                _lastConnectionParams.onTypingCallback,
+            ).catch((err) => console.error('Failed to reconnect WebSocket:', err));
+        }
+    }
+});
 
 // Chờ cho tới khi STOMP client kết nối (tối đa timeoutMs).
 // Trả về true nếu kết nối sẵn sàng, false nếu quá hạn/không có client.
@@ -336,6 +383,29 @@ export function connectWebSocket(
             reject(new Error('Token is missing'));
             return;
         }
+
+        // Store connection params for reconnect after token refresh
+        _lastConnectionParams = {
+            userId,
+            onMessageCallback,
+            onDeleteCallback,
+            onRecallCallback,
+            onPinCallback,
+            onUnpinCallback,
+            groupIds,
+            onFriendRequestCallback,
+            onEditCallback,
+            onStatusChangeCallback,
+            onCallSignalCallback,
+            onReadCallback,
+            onGroupCreateCallback,
+            onGroupUpdateCallback,
+            onGroupDeleteCallback,
+            onGroupInviteCallback,
+            onFriendRequestAcceptedCallback,
+            onFriendRequestRejectedCallback,
+            onTypingCallback,
+        };
 
         if (stompClient && stompClient.connected) {
             console.log('STOMP connection already in progress');

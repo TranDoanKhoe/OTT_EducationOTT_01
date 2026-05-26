@@ -12,6 +12,7 @@ import {
     unregisterCallSignalHandler,
 } from '../../src/api/messageApi';
 import localStorage from '../../src/utils/localStoragePolyfill';
+import { requestMediaPermissions, handleMediaPermissionError } from '../../src/utils/mediaPermissions';
 
 export default function IncomingCallScreen() {
     const router = useRouter();
@@ -68,6 +69,15 @@ export default function IncomingCallScreen() {
     const handleAccept = async () => {
         Vibration.cancel();
         unregisterCallSignalHandler();
+
+        // Request permissions first
+        const hasPermissions = await requestMediaPermissions(isVideo);
+        if (!hasPermissions) {
+            console.log('❌ Permissions denied, rejecting call');
+            handleReject();
+            return;
+        }
+
         try {
             if (isGroupCall) {
                 // ── Group call accept ──
@@ -133,6 +143,7 @@ export default function IncomingCallScreen() {
             }
         } catch (err) {
             console.error('Error accepting call:', err);
+            handleMediaPermissionError(err);
             handleReject();
         }
     };

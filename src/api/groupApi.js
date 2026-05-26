@@ -1,10 +1,18 @@
 import localStorage from '../utils/localStoragePolyfill';
+import { getAccessTokenSync } from '../utils/authHeader';
 import axios from 'axios';
 
 // Lấy backend URL trực tiếp từ env - không dùng URL tương đối trên mobile
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://ott-education-be.onrender.com';
 // Backend endpoint là /group (không có /api prefix - Vite proxy dày /api rồi xóa nó)
 const API_BASE_URL = `${BACKEND_URL}/group`;
+
+// Helper to get token
+const getToken = () => {
+    const token = getAccessTokenSync();
+    if (token) return token;
+    return localStorage.getItem('accessToken') || localStorage.getItem('token');
+};
 
 export const createGroup = async (
     name,

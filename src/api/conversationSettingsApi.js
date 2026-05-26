@@ -1,3 +1,4 @@
+import { getAccessTokenSync } from '../utils/authHeader';
 import axios from 'axios';
 
 const BACKEND_URL =
@@ -6,6 +7,9 @@ const BACKEND_URL =
 
 // Dùng absolute URL - relative URL không hoạt động trên React Native mobile
 const API_BASE_URL = `${BACKEND_URL}/api/conversation-settings`;
+
+// Helper to get token
+const getToken = () => getAccessTokenSync();
 
 export const getConversationSettings = async (token) => {
     const response = await axios.get(API_BASE_URL, {

@@ -67,6 +67,14 @@ import { fetchUserGroups, fetchGroupMembers, fetchGroupDetail } from '../../src/
 import * as webrtcService from '../../src/services/webrtcService';
 import localStorage from '../../src/utils/localStoragePolyfill';
 import { updateConversationSetting, reportUser, reportGroup } from '../../src/api/conversationSettingsApi';
+import { reactToMessage } from '../../src/api/messageApi';
+
+// Import new components
+import { MessageBubble, ChatInput, ChatHeader } from '../../src/components/chat';
+
+// Import new hooks
+import { useMessageReactions } from '../../src/hooks/useMessageReactions';
+import { useInfiniteScroll } from '../../src/hooks/useInfiniteScroll';
 
 function InlineVideo({ uri }: { uri: string }) {
     const player = useVideoPlayer(uri, (p) => { p.loop = false; });
@@ -136,9 +144,18 @@ export default function ChatScreen() {
     const hasSentTypingRef = useRef(false);
     const peerTypingTimeoutRef = useRef(null);
 
+    // ✅ NEW: Setup custom hooks
+    const { handleReaction: handleReactionHook, getReactions } = useMessageReactions(userId);
+    const { loadMoreMessages, isLoadingMore, hasMoreHistory, resetPagination } = useInfiniteScroll(
+        id,
+        isPrivate === 'true',
+        userId
+    );
+
     // Lấy lịch sử tin nhắn khi mở trang chat
     const fetchHistory = useCallback(async () => {
         try {
+            resetPagination(); // ✅ Reset pagination when loading new chat
             let data = [];
             if (isPrivate === 'true') {
                 data = await getChatHistory(id, token);
@@ -155,7 +172,7 @@ export default function ChatScreen() {
         } finally {
             setIsLoading(false);
         }
-    }, [id, isPrivate, token, markMessagesAsRead]);
+    }, [id, isPrivate, token, markMessagesAsRead, resetPagination]);
 
     const fetchPinned = useCallback(async () => {
         try {

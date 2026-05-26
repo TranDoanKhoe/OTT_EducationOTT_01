@@ -1,5 +1,6 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import localStorage from '../utils/localStoragePolyfill';
+import { getAccessTokenSync } from '../utils/authHeader';
 import '../api/axiosConfig';
 
 const DEFAULT_BACKEND_URL = 'https://ott-education-be.onrender.com';
@@ -29,18 +30,16 @@ const buildCandidateUrls = (path) => {
     return Array.from(new Set(candidates));
 };
 
-const normalizeToken = (value) => {
-    const token = String(value || '')
-        .trim()
-        .replace(/^['\"]|['\"]$/g, '')
-        .replace(/^Bearer\s+/i, '');
-    return token || null;
+// Use authHeader utility instead of direct localStorage access
+const getToken = () => {
+    // Try new authHeader first (sync version for fetch calls)
+    const token = getAccessTokenSync();
+    if (token) return token;
+    
+    // Fallback to localStorage for backward compatibility
+    const fallback = localStorage.getItem('accessToken') || localStorage.getItem('token');
+    return fallback ? String(fallback).trim().replace(/^Bearer\s+/i, '') : null;
 };
-
-const getToken = () =>
-    normalizeToken(
-        localStorage.getItem('accessToken') || localStorage.getItem('token'),
-    );
 
 const buildError = (message, status, code) => {
     const err = new Error(message || 'Update profile failed');

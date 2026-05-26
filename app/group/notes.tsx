@@ -2,8 +2,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
     View, Text, StyleSheet, FlatList, TouchableOpacity,
-    ActivityIndicator, Alert, Modal, Pressable, TextInput,
-    RefreshControl, ScrollView,
+    ActivityIndicator, Alert, RefreshControl,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -11,6 +10,9 @@ import {
     getGroupNotes, createGroupNote, updateGroupNote, deleteGroupNote,
 } from '../../src/api/groupFeaturesApi';
 import localStorage from '../../src/utils/localStoragePolyfill';
+
+// ✅ NEW: Import components
+import { NoteItem, CreateNoteModal } from '../../src/components/group';
 
 export default function GroupNotesScreen() {
     const { id } = useLocalSearchParams();
@@ -20,13 +22,11 @@ export default function GroupNotesScreen() {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
 
-    // Modal tạo/sửa note
+    // ✅ NEW: Modal state
     const [noteModalVisible, setNoteModalVisible] = useState(false);
-    const [editingNote, setEditingNote] = useState(null); // null = tạo mới
-    const [noteTitle, setNoteTitle] = useState('');
-    const [noteContent, setNoteContent] = useState('');
-    const [saving, setSaving] = useState(false);
+    const [editingNote, setEditingNote] = useState(null);
 
+    const userId = localStorage.getItem('userId');
     const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
 
     const loadNotes = useCallback(async () => {
@@ -47,41 +47,35 @@ export default function GroupNotesScreen() {
 
     const openCreateModal = () => {
         setEditingNote(null);
-        setNoteTitle('');
-        setNoteContent('');
         setNoteModalVisible(true);
     };
 
     const openEditModal = (note) => {
         setEditingNote(note);
-        setNoteTitle(note.title || '');
-        setNoteContent(note.content || '');
         setNoteModalVisible(true);
     };
 
-    const handleSaveNote = async () => {
-        if (!noteTitle.trim()) {
-            Alert.alert('Thiếu tiêu đề', 'Vui lòng nhập tiêu đề ghi chú');
-            return;
-        }
-        setSaving(true);
+    // ✅ NEW: Handle create/update note
+    const handleSaveNote = async (title: string, content: string) => {
         try {
             if (editingNote) {
                 const noteId = editingNote.id || editingNote._id;
-                await updateGroupNote(noteId, noteTitle.trim(), noteContent.trim(), token);
+                await updateGroupNote(noteId, title, content, token);
+                Alert.alert('Thành công', 'Đã cập nhật ghi chú');
             } else {
-                await createGroupNote(id, noteTitle.trim(), noteContent.trim(), token);
+                await createGroupNote(id, title, content, token);
+                Alert.alert('Thành công', 'Đã tạo ghi chú mới');
             }
             setNoteModalVisible(false);
+            setEditingNote(null);
             await loadNotes();
-            Alert.alert('Thành công', editingNote ? 'Đã cập nhật ghi chú' : 'Đã tạo ghi chú mới');
         } catch (e) {
             Alert.alert('Lỗi', 'Không thể lưu ghi chú');
-        } finally {
-            setSaving(false);
+            throw e;
         }
     };
 
+    // ✅ NEW: Handle delete note
     const handleDeleteNote = (note) => {
         const noteId = note.id || note._id;
         Alert.alert('Xóa ghi chú', `Xóa ghi chú "${note.title}"?`, [
@@ -92,32 +86,24 @@ export default function GroupNotesScreen() {
                     try {
                         await deleteGroupNote(noteId, token);
                         setNotes((prev) => prev.filter((n) => (n.id || n._id) !== noteId));
-                    } catch { Alert.alert('Lỗi', 'Không thể xóa ghi chú'); }
+                        Alert.alert('Thành công', 'Đã xóa ghi chú');
+                    } catch { 
+                        Alert.alert('Lỗi', 'Không thể xóa ghi chú'); 
+                    }
                 },
             },
         ]);
     };
 
+    // ✅ NEW: Render note using NoteItem component
     const renderNote = ({ item }) => (
-        <View style={styles.noteCard}>
-            <View style={styles.noteCardTop}>
-                <Text style={styles.noteTitle}>{item.title || 'Không có tiêu đề'}</Text>
-                <View style={styles.noteActions}>
-                    <TouchableOpacity onPress={() => openEditModal(item)} style={styles.iconBtn}>
-                        <MaterialIcons name="edit" size={18} color="#3b82f6" />
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => handleDeleteNote(item)} style={styles.iconBtn}>
-                        <MaterialIcons name="delete-outline" size={18} color="#ef4444" />
-                    </TouchableOpacity>
-                </View>
-            </View>
-            {item.content ? (
-                <Text style={styles.noteContent} numberOfLines={3}>{item.content}</Text>
-            ) : null}
-            <Text style={styles.noteDate}>
-                {item.createdAt ? new Date(item.createdAt).toLocaleDateString('vi-VN') : ''}
-            </Text>
-        </View>
+        <NoteItem
+            note={item}
+            currentUserId={userId}
+            isAdmin={true} // TODO: Get from group info
+            onEdit={() => openEditModal(item)}
+            onDelete={() => handleDeleteNote(item)}
+        />
     );
 
     if (loading) {
@@ -158,49 +144,17 @@ export default function GroupNotesScreen() {
                 />
             )}
 
-            {/* Modal tạo/sửa ghi chú */}
-            <Modal visible={noteModalVisible} transparent animationType="slide" onRequestClose={() => setNoteModalVisible(false)}>
-                <Pressable style={styles.modalOverlay} onPress={() => setNoteModalVisible(false)}>
-                    <Pressable style={styles.modalCard} onPress={() => {}}>
-                        <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>{editingNote ? 'Sửa ghi chú' : 'Tạo ghi chú mới'}</Text>
-                            <TouchableOpacity onPress={() => setNoteModalVisible(false)}>
-                                <MaterialIcons name="close" size={22} color="#6b7280" />
-                            </TouchableOpacity>
-                        </View>
-
-                        <Text style={styles.inputLabel}>Tiêu đề</Text>
-                        <TextInput
-                            style={styles.textInput}
-                            value={noteTitle}
-                            onChangeText={setNoteTitle}
-                            placeholder="Nhập tiêu đề ghi chú..."
-                            maxLength={200}
-                        />
-
-                        <Text style={styles.inputLabel}>Nội dung</Text>
-                        <TextInput
-                            style={[styles.textInput, styles.textArea]}
-                            value={noteContent}
-                            onChangeText={setNoteContent}
-                            placeholder="Nhập nội dung ghi chú..."
-                            multiline
-                            numberOfLines={5}
-                            textAlignVertical="top"
-                        />
-
-                        <TouchableOpacity
-                            style={[styles.saveBtn, saving && { opacity: 0.6 }]}
-                            onPress={handleSaveNote}
-                            disabled={saving}
-                        >
-                            {saving ? <ActivityIndicator size="small" color="#fff" /> : (
-                                <Text style={styles.saveBtnText}>{editingNote ? 'Lưu thay đổi' : 'Tạo ghi chú'}</Text>
-                            )}
-                        </TouchableOpacity>
-                    </Pressable>
-                </Pressable>
-            </Modal>
+            {/* ✅ NEW: Use CreateNoteModal component */}
+            <CreateNoteModal
+                visible={noteModalVisible}
+                onClose={() => {
+                    setNoteModalVisible(false);
+                    setEditingNote(null);
+                }}
+                onSubmit={handleSaveNote}
+                groupId={id}
+                editingNote={editingNote}
+            />
         </View>
     );
 }
@@ -212,25 +166,9 @@ const styles = StyleSheet.create({
     backBtn: { padding: 4 },
     headerTitle: { fontSize: 18, fontWeight: 'bold', color: '#065f46' },
     addBtn: { padding: 4 },
-    noteCard: { backgroundColor: '#fff', borderRadius: 14, padding: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2 },
-    noteCardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
-    noteTitle: { flex: 1, fontSize: 15, fontWeight: '700', color: '#111827' },
-    noteActions: { flexDirection: 'row', gap: 4 },
-    iconBtn: { padding: 6 },
-    noteContent: { fontSize: 14, color: '#4b5563', lineHeight: 20, marginBottom: 8 },
-    noteDate: { fontSize: 11, color: '#9ca3af' },
     emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 40, gap: 12 },
     emptyTitle: { fontSize: 16, fontWeight: 'bold', color: '#374151' },
     emptySubtitle: { fontSize: 13, color: '#9ca3af', textAlign: 'center' },
     createBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#10b981', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 10, marginTop: 8 },
     createBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 14 },
-    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
-    modalCard: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, paddingBottom: 36 },
-    modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-    modalTitle: { fontSize: 16, fontWeight: '700', color: '#111827' },
-    inputLabel: { fontSize: 13, color: '#6b7280', marginBottom: 6, marginTop: 12 },
-    textInput: { borderWidth: 1, borderColor: '#d1d5db', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, fontSize: 15, color: '#111827', backgroundColor: '#f9fafb' },
-    textArea: { height: 120, paddingTop: 10 },
-    saveBtn: { backgroundColor: '#10b981', padding: 14, borderRadius: 12, alignItems: 'center', marginTop: 20 },
-    saveBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
 });

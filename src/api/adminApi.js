@@ -1,3 +1,4 @@
+import { getAccessTokenSync } from '../utils/authHeader';
 import axios from 'axios';
 
 const DEFAULT_BACKEND_URL = 'https://ott-education-be.onrender.com';
@@ -19,6 +20,9 @@ const AUTH_BASE_URL = sanitizeUrl(
 
 // Dùng absolute URL - relative URL không hoạt động trên React Native mobile
 const API_BASE_URL = `${AUTH_BASE_URL}/api/admin`;
+
+// Helper to get token
+const getToken = () => getAccessTokenSync();
 
 // Get dashboard statistics
 export const getAdminStats = async (token) => {

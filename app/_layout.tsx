@@ -3,12 +3,19 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { useEffect } from 'react';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { initAuth } from '../src/utils/authHeader';
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+
+  // Initialize auth on app start (load token to memory)
+  useEffect(() => {
+    initAuth();
+  }, []);
 
   return (
     <SafeAreaProvider>

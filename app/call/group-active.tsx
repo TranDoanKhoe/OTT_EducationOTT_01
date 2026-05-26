@@ -1,11 +1,10 @@
 // @ts-nocheck
 import React, { useEffect, useState, useRef } from 'react';
 import {
-    View, Text, StyleSheet, TouchableOpacity, StatusBar,
+    View, Text, StyleSheet, StatusBar,
     FlatList, Dimensions,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { RTCView } from 'react-native-webrtc';
 import { MaterialIcons } from '@expo/vector-icons';
 import * as webrtcService from '../../src/services/webrtcService';
 import {
@@ -14,6 +13,7 @@ import {
     unregisterCallSignalHandler,
 } from '../../src/api/messageApi';
 import localStorage from '../../src/utils/localStoragePolyfill';
+import { CallControls, VideoView } from '../../src/components/call';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
@@ -31,18 +31,18 @@ export default function GroupActiveCallScreen() {
     const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
     const myUserId = localStorage.getItem('userId');
 
-    const [isMuted, setIsMuted] = useState(false);
-    const [isCameraOff, setIsCameraOff] = useState(false);
+    const [isAudioEnabled, setIsAudioEnabled] = useState(true);
+    const [isVideoEnabled, setIsVideoEnabled] = useState(true);
     const [callDuration, setCallDuration] = useState(0);
-    const [remoteStreams, setRemoteStreams] = useState([]); // [{peerId, streamUrl}]
-    const [localStreamUrl, setLocalStreamUrl] = useState(null);
+    const [remoteStreams, setRemoteStreams] = useState([]); // [{peerId, stream}]
+    const [localStream, setLocalStream] = useState(null);
 
     const timerRef = useRef(null);
     const pollRef = useRef(null);
 
     useEffect(() => {
         const local = webrtcService.getGroupLocalStream();
-        if (local) setLocalStreamUrl(local.toURL());
+        if (local) setLocalStream(local);
 
         // Full-mesh: if we're a non-initiator, send offers to all other members
         // (we already answered the caller, so skip them)
@@ -62,8 +62,8 @@ export default function GroupActiveCallScreen() {
                         (pid: string, stream: any) => {
                             setRemoteStreams((prev) => {
                                 const exists = prev.find((s) => s.peerId === pid);
-                                if (exists) return prev.map((s) => s.peerId === pid ? { ...s, url: stream.toURL() } : s);
-                                return [...prev, { peerId: pid, url: stream.toURL() }];
+                                if (exists) return prev.map((s) => s.peerId === pid ? { ...s, stream } : s);
+                                return [...prev, { peerId: pid, stream }];
                             });
                         },
                     );
@@ -82,7 +82,7 @@ export default function GroupActiveCallScreen() {
         pollRef.current = setInterval(() => {
             const streams = webrtcService.getGroupRemoteStreams();
             if (streams.length > 0) {
-                setRemoteStreams(streams.map((s) => ({ peerId: s.peerId, url: s.stream.toURL() })));
+                setRemoteStreams(streams.map((s) => ({ peerId: s.peerId, stream: s.stream })));
             }
         }, 500);
 
@@ -123,8 +123,8 @@ export default function GroupActiveCallScreen() {
             (pid, stream) => {
                 setRemoteStreams((prev) => {
                     const exists = prev.find((s) => s.peerId === pid);
-                    if (exists) return prev.map((s) => s.peerId === pid ? { ...s, url: stream.toURL() } : s);
-                    return [...prev, { peerId: pid, url: stream.toURL() }];
+                    if (exists) return prev.map((s) => s.peerId === pid ? { ...s, stream } : s);
+                    return [...prev, { peerId: pid, stream }];
                 });
             },
         );
@@ -138,14 +138,14 @@ export default function GroupActiveCallScreen() {
         return `${m}:${(s % 60).toString().padStart(2, '0')}`;
     };
 
-    const handleToggleMute = () => {
+    const handleToggleAudio = () => {
         const enabled = webrtcService.toggleGroupAudio();
-        setIsMuted(!enabled);
+        setIsAudioEnabled(enabled);
     };
 
-    const handleToggleCamera = () => {
+    const handleToggleVideo = () => {
         const enabled = webrtcService.toggleGroupVideo();
-        setIsCameraOff(!enabled);
+        setIsVideoEnabled(enabled);
     };
 
     const handleEndCall = () => {
@@ -173,14 +173,12 @@ export default function GroupActiveCallScreen() {
         const tileW = isSingle ? SCREEN_W : SCREEN_W / 2;
         return (
             <View style={[styles.peerTile, { width: tileW, flex: isSingle ? 1 : undefined, height: isSingle ? undefined : tileW * 0.9 }]}>
-                {item.url ? (
-                    <RTCView streamURL={item.url} style={styles.peerVideo} objectFit="cover" />
-                ) : (
-                    <View style={styles.peerPlaceholder}>
-                        <MaterialIcons name="person" size={36} color="#475569" />
-                    </View>
-                )}
-                <Text style={styles.peerLabel}>Thành viên {index + 1}</Text>
+                <VideoView
+                    stream={item.stream}
+                    isLocal={false}
+                    userName={`Thành viên ${index + 1}`}
+                    style={{ flex: 1 }}
+                />
             </View>
         );
     };
@@ -220,40 +218,25 @@ export default function GroupActiveCallScreen() {
             </View>
 
             {/* Local PiP */}
-            {localStreamUrl && isVideo && !isCameraOff && (
-                <RTCView
-                    streamURL={localStreamUrl}
+            {localStream && isVideo && isVideoEnabled && (
+                <VideoView
+                    stream={localStream}
+                    isLocal={true}
+                    isMuted={!isAudioEnabled}
                     style={styles.localPip}
-                    objectFit="cover"
-                    mirror={true}
                 />
             )}
 
             {/* Controls */}
-            <View style={styles.controls}>
-                <TouchableOpacity
-                    style={[styles.controlBtn, isMuted && styles.controlBtnActive]}
-                    onPress={handleToggleMute}
-                >
-                    <MaterialIcons name={isMuted ? 'mic-off' : 'mic'} size={26} color={isMuted ? '#ef4444' : '#fff'} />
-                    <Text style={styles.controlLabel}>{isMuted ? 'Tắt tiếng' : 'Micro'}</Text>
-                </TouchableOpacity>
-
-                {isVideo && (
-                    <TouchableOpacity
-                        style={[styles.controlBtn, isCameraOff && styles.controlBtnActive]}
-                        onPress={handleToggleCamera}
-                    >
-                        <MaterialIcons name={isCameraOff ? 'videocam-off' : 'videocam'} size={26} color={isCameraOff ? '#ef4444' : '#fff'} />
-                        <Text style={styles.controlLabel}>{isCameraOff ? 'Camera tắt' : 'Camera'}</Text>
-                    </TouchableOpacity>
-                )}
-
-                <TouchableOpacity style={styles.endCallBtn} onPress={handleEndCall}>
-                    <MaterialIcons name="call-end" size={30} color="#fff" />
-                    <Text style={styles.controlLabel}>Kết thúc</Text>
-                </TouchableOpacity>
-            </View>
+            <CallControls
+                isAudioEnabled={isAudioEnabled}
+                isVideoEnabled={isVideoEnabled}
+                onToggleAudio={handleToggleAudio}
+                onToggleVideo={isVideo ? handleToggleVideo : undefined}
+                onEndCall={handleEndCall}
+                showVideo={isVideo}
+                callDuration={formatDuration(callDuration)}
+            />
         </View>
     );
 }
@@ -274,55 +257,12 @@ const styles = StyleSheet.create({
     waitingBox: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 14 },
     waitingText: { color: '#475569', fontSize: 15 },
     peerTile: { backgroundColor: '#1e293b', overflow: 'hidden', position: 'relative' },
-    peerVideo: { flex: 1 },
-    peerPlaceholder: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    peerLabel: {
-        position: 'absolute',
-        bottom: 6,
-        left: 8,
-        fontSize: 11,
-        color: '#f1f5f9',
-        backgroundColor: 'rgba(0,0,0,0.5)',
-        paddingHorizontal: 6,
-        paddingVertical: 2,
-        borderRadius: 4,
-    },
     localPip: {
         position: 'absolute',
         top: 100,
         right: 12,
         width: 90,
         height: 120,
-        borderRadius: 10,
-        borderWidth: 2,
-        borderColor: '#1e293b',
-        overflow: 'hidden',
         zIndex: 20,
     },
-    controls: {
-        flexDirection: 'row',
-        justifyContent: 'center',
-        alignItems: 'center',
-        gap: 28,
-        paddingVertical: 28,
-        backgroundColor: 'rgba(15,23,42,0.92)',
-    },
-    controlBtn: {
-        width: 60,
-        height: 60,
-        borderRadius: 30,
-        backgroundColor: '#1e293b',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    controlBtnActive: { backgroundColor: '#2d1a1a' },
-    endCallBtn: {
-        width: 68,
-        height: 68,
-        borderRadius: 34,
-        backgroundColor: '#ef4444',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    controlLabel: { fontSize: 10, color: '#94a3b8', marginTop: 2 },
 });

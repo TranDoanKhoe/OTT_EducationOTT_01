@@ -1,9 +1,13 @@
+import { getAccessTokenSync } from '../utils/authHeader';
 import axios from 'axios';
 
 const BACKEND_URL =
     process.env.EXPO_PUBLIC_BACKEND_URL ||
     'https://ott-education-be.onrender.com';
 const API_BASE_URL = `${BACKEND_URL}/resources`;
+
+// Helper to get token
+const getToken = () => getAccessTokenSync();
 
 // Lấy danh sách tài liệu của user
 export const getResources = async (token, category = 'all') => {

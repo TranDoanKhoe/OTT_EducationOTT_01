@@ -1,10 +1,9 @@
 // @ts-nocheck
 import React, { useEffect, useState, useRef } from 'react';
 import {
-    View, Text, StyleSheet, TouchableOpacity, StatusBar,
+    View, Text, StyleSheet, StatusBar,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { RTCView } from 'react-native-webrtc';
 import { MaterialIcons } from '@expo/vector-icons';
 import * as webrtcService from '../../src/services/webrtcService';
 import {
@@ -13,6 +12,7 @@ import {
     unregisterCallSignalHandler,
 } from '../../src/api/messageApi';
 import localStorage from '../../src/utils/localStoragePolyfill';
+import { CallControls, VideoView } from '../../src/components/call';
 
 export default function ActiveCallScreen() {
     const router = useRouter();
@@ -27,11 +27,11 @@ export default function ActiveCallScreen() {
 
     const role = params.role as string; // 'caller' | 'callee'
 
-    const [isMuted, setIsMuted] = useState(false);
-    const [isCameraOff, setIsCameraOff] = useState(false);
+    const [isAudioEnabled, setIsAudioEnabled] = useState(true);
+    const [isVideoEnabled, setIsVideoEnabled] = useState(true);
     const [callDuration, setCallDuration] = useState(0);
-    const [remoteStreamUrl, setRemoteStreamUrl] = useState(null);
-    const [localStreamUrl, setLocalStreamUrl] = useState(null);
+    const [remoteStream, setRemoteStream] = useState(null);
+    const [localStream, setLocalStream] = useState(null);
     const [callAccepted, setCallAccepted] = useState(role !== 'caller');
 
     const timerRef = useRef(null);
@@ -39,16 +39,16 @@ export default function ActiveCallScreen() {
 
     useEffect(() => {
         const local = webrtcService.getLocalStream();
-        if (local) setLocalStreamUrl(local.toURL());
+        if (local) setLocalStream(local);
 
         const remote = webrtcService.getRemoteStream();
-        if (remote) setRemoteStreamUrl(remote.toURL());
+        if (remote) setRemoteStream(remote);
 
         // Poll until remote stream becomes available
         pollRef.current = setInterval(() => {
             const remoteStream = webrtcService.getRemoteStream();
             if (remoteStream) {
-                setRemoteStreamUrl(remoteStream.toURL());
+                setRemoteStream(remoteStream);
                 clearInterval(pollRef.current);
                 pollRef.current = null;
             }
@@ -94,14 +94,14 @@ export default function ActiveCallScreen() {
         return `${m}:${s}`;
     };
 
-    const handleToggleMute = () => {
+    const handleToggleAudio = () => {
         const enabled = webrtcService.toggleAudio();
-        setIsMuted(!enabled);
+        setIsAudioEnabled(enabled);
     };
 
-    const handleToggleCamera = () => {
+    const handleToggleVideo = () => {
         const enabled = webrtcService.toggleVideo();
-        setIsCameraOff(!enabled);
+        setIsVideoEnabled(enabled);
     };
 
     const handleEndCall = (sendSignal = true) => {
@@ -122,19 +122,20 @@ export default function ActiveCallScreen() {
         return (
             <View style={styles.container}>
                 <StatusBar barStyle="light-content" backgroundColor="#0f172a" />
-                <View style={styles.audioCallArea}>
-                    <View style={styles.audioAvatar}>
+                <View style={styles.waitingArea}>
+                    <View style={styles.avatarCircle}>
                         <MaterialIcons name="person" size={64} color="#10b981" />
                     </View>
-                    <Text style={styles.callerNameText}>{callerName || 'Người dùng'}</Text>
-                    <Text style={styles.durationText}>Đang gọi...</Text>
+                    <Text style={styles.nameText}>{callerName || 'Người dùng'}</Text>
+                    <Text style={styles.statusText}>Đang gọi...</Text>
                 </View>
-                <View style={styles.controls}>
-                    <TouchableOpacity style={styles.endCallBtn} onPress={() => handleEndCall(true)}>
-                        <MaterialIcons name="call-end" size={32} color="#fff" />
-                        <Text style={styles.controlLabel}>Hủy</Text>
-                    </TouchableOpacity>
-                </View>
+                <CallControls
+                    isAudioEnabled={isAudioEnabled}
+                    isVideoEnabled={isVideoEnabled}
+                    onToggleAudio={handleToggleAudio}
+                    onEndCall={() => handleEndCall(true)}
+                    showVideo={false}
+                />
             </View>
         );
     }
@@ -145,78 +146,49 @@ export default function ActiveCallScreen() {
 
             {isVideo ? (
                 <>
-                    {remoteStreamUrl ? (
-                        <RTCView
-                            streamURL={remoteStreamUrl}
-                            style={styles.remoteVideo}
-                            objectFit="cover"
-                            mirror={false}
+                    {/* Remote video (full screen) */}
+                    <VideoView
+                        stream={remoteStream}
+                        isLocal={false}
+                        userName={callerName}
+                        style={styles.remoteVideo}
+                    />
+
+                    {/* Local video (PiP) */}
+                    {isVideoEnabled && (
+                        <VideoView
+                            stream={localStream}
+                            isLocal={true}
+                            isMuted={!isAudioEnabled}
+                            style={styles.localVideo}
                         />
-                    ) : (
-                        <View style={styles.remoteVideoPlaceholder}>
-                            <MaterialIcons name="videocam-off" size={48} color="#475569" />
-                            <Text style={styles.waitingText}>Đang kết nối...</Text>
-                        </View>
                     )}
 
-                    {localStreamUrl && !isCameraOff && (
-                        <RTCView
-                            streamURL={localStreamUrl}
-                            style={styles.localVideo}
-                            objectFit="cover"
-                            mirror={true}
-                        />
-                    )}
+                    {/* Call info overlay */}
+                    <View style={styles.videoOverlay}>
+                        <Text style={styles.overlayName}>{callerName}</Text>
+                        <Text style={styles.overlayDuration}>{formatDuration(callDuration)}</Text>
+                    </View>
                 </>
             ) : (
                 <View style={styles.audioCallArea}>
-                    <View style={styles.audioAvatar}>
+                    <View style={styles.avatarCircle}>
                         <MaterialIcons name="person" size={64} color="#10b981" />
                     </View>
-                    <Text style={styles.callerNameText}>{callerName || 'Người dùng'}</Text>
+                    <Text style={styles.nameText}>{callerName || 'Người dùng'}</Text>
                     <Text style={styles.durationText}>{formatDuration(callDuration)}</Text>
                 </View>
             )}
 
-            {isVideo && (
-                <View style={styles.videoOverlayTop}>
-                    <Text style={styles.callerNameOverlay}>{callerName}</Text>
-                    <Text style={styles.durationOverlay}>{formatDuration(callDuration)}</Text>
-                </View>
-            )}
-
-            <View style={styles.controls}>
-                <TouchableOpacity
-                    style={[styles.controlBtn, isMuted && styles.controlBtnActive]}
-                    onPress={handleToggleMute}
-                >
-                    <MaterialIcons
-                        name={isMuted ? 'mic-off' : 'mic'}
-                        size={28}
-                        color={isMuted ? '#ef4444' : '#fff'}
-                    />
-                    <Text style={styles.controlLabel}>{isMuted ? 'Tắt tiếng' : 'Micro'}</Text>
-                </TouchableOpacity>
-
-                {isVideo && (
-                    <TouchableOpacity
-                        style={[styles.controlBtn, isCameraOff && styles.controlBtnActive]}
-                        onPress={handleToggleCamera}
-                    >
-                        <MaterialIcons
-                            name={isCameraOff ? 'videocam-off' : 'videocam'}
-                            size={28}
-                            color={isCameraOff ? '#ef4444' : '#fff'}
-                        />
-                        <Text style={styles.controlLabel}>{isCameraOff ? 'Camera tắt' : 'Camera'}</Text>
-                    </TouchableOpacity>
-                )}
-
-                <TouchableOpacity style={styles.endCallBtn} onPress={() => handleEndCall(true)}>
-                    <MaterialIcons name="call-end" size={32} color="#fff" />
-                    <Text style={styles.controlLabel}>Kết thúc</Text>
-                </TouchableOpacity>
-            </View>
+            <CallControls
+                isAudioEnabled={isAudioEnabled}
+                isVideoEnabled={isVideoEnabled}
+                onToggleAudio={handleToggleAudio}
+                onToggleVideo={isVideo ? handleToggleVideo : undefined}
+                onEndCall={() => handleEndCall(true)}
+                showVideo={isVideo}
+                callDuration={formatDuration(callDuration)}
+            />
         </View>
     );
 }
@@ -226,30 +198,11 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: '#0f172a',
     },
-    remoteVideo: {
-        flex: 1,
-    },
-    remoteVideoPlaceholder: {
+    waitingArea: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
         gap: 16,
-    },
-    waitingText: {
-        color: '#64748b',
-        fontSize: 16,
-    },
-    localVideo: {
-        position: 'absolute',
-        top: 60,
-        right: 16,
-        width: 100,
-        height: 140,
-        borderRadius: 12,
-        borderWidth: 2,
-        borderColor: '#1e293b',
-        overflow: 'hidden',
-        zIndex: 10,
     },
     audioCallArea: {
         flex: 1,
@@ -257,7 +210,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         gap: 16,
     },
-    audioAvatar: {
+    avatarCircle: {
         width: 120,
         height: 120,
         borderRadius: 60,
@@ -268,16 +221,31 @@ const styles = StyleSheet.create({
         borderColor: '#10b981',
         marginBottom: 8,
     },
-    callerNameText: {
+    nameText: {
         fontSize: 26,
         fontWeight: 'bold',
         color: '#f1f5f9',
+    },
+    statusText: {
+        fontSize: 18,
+        color: '#94a3b8',
     },
     durationText: {
         fontSize: 18,
         color: '#94a3b8',
     },
-    videoOverlayTop: {
+    remoteVideo: {
+        flex: 1,
+    },
+    localVideo: {
+        position: 'absolute',
+        top: 60,
+        right: 16,
+        width: 100,
+        height: 140,
+        zIndex: 10,
+    },
+    videoOverlay: {
         position: 'absolute',
         top: 50,
         left: 0,
@@ -285,7 +253,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         zIndex: 5,
     },
-    callerNameOverlay: {
+    overlayName: {
         fontSize: 18,
         fontWeight: '600',
         color: '#f1f5f9',
@@ -293,46 +261,11 @@ const styles = StyleSheet.create({
         textShadowOffset: { width: 0, height: 1 },
         textShadowRadius: 4,
     },
-    durationOverlay: {
+    overlayDuration: {
         fontSize: 14,
         color: '#94a3b8',
         textShadowColor: 'rgba(0,0,0,0.8)',
         textShadowOffset: { width: 0, height: 1 },
         textShadowRadius: 4,
-    },
-    controls: {
-        flexDirection: 'row',
-        justifyContent: 'center',
-        alignItems: 'center',
-        gap: 32,
-        paddingVertical: 32,
-        paddingHorizontal: 24,
-        backgroundColor: 'rgba(15, 23, 42, 0.9)',
-    },
-    controlBtn: {
-        width: 64,
-        height: 64,
-        borderRadius: 32,
-        backgroundColor: '#1e293b',
-        justifyContent: 'center',
-        alignItems: 'center',
-        gap: 4,
-    },
-    controlBtnActive: {
-        backgroundColor: '#2d1a1a',
-    },
-    endCallBtn: {
-        width: 72,
-        height: 72,
-        borderRadius: 36,
-        backgroundColor: '#ef4444',
-        justifyContent: 'center',
-        alignItems: 'center',
-        gap: 4,
-    },
-    controlLabel: {
-        fontSize: 11,
-        color: '#94a3b8',
-        marginTop: 2,
     },
 });

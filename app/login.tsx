@@ -14,6 +14,14 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import localStorage from '../src/utils/localStoragePolyfill';
+import {
+    setAccessToken,
+    setRefreshToken,
+    setUserId,
+    setUserRole,
+    setRememberMe,
+    getRememberMe,
+} from '../src/utils/authHeader';
 
 const LOGIN_TIMEOUT_MS = 60000;
 
@@ -41,11 +49,15 @@ export default function Login() {
     const [rememberMe, setRememberMe] = useState(false);
 
     useEffect(() => {
-        const savedUsername = localStorage.getItem('savedUsername');
-        if (savedUsername) {
-            setUsername(savedUsername);
-            setRememberMe(true);
-        }
+        const loadSavedUsername = async () => {
+            const savedUsername = localStorage.getItem('savedUsername');
+            const remembered = await getRememberMe();
+            if (savedUsername) {
+                setUsername(savedUsername);
+                setRememberMe(remembered);
+            }
+        };
+        loadSavedUsername();
     }, []);
 
     const handleLogin = async () => {
@@ -115,7 +127,14 @@ export default function Login() {
                 throw new Error(lastErrorMessage);
             }
 
-            // Save tokens
+            // Save tokens using authHeader utility (đồng bộ với Web)
+            await setAccessToken(data.accessToken);
+            await setRefreshToken(data.refreshToken);
+            await setUserId(data.userId);
+            await setUserRole(data.role || 'STUDENT');
+            await setRememberMe(rememberMe);
+
+            // Backward compatibility: also save to localStorage for old code
             localStorage.setItem('accessToken', data.accessToken);
             localStorage.setItem('refreshToken', data.refreshToken);
             localStorage.setItem('userId', data.userId);
@@ -127,6 +146,8 @@ export default function Login() {
             } else {
                 localStorage.removeItem('savedUsername');
             }
+
+            console.log('✅ Login successful, tokens saved');
 
             // Navigate to main tabs
             router.replace('/(tabs)');
