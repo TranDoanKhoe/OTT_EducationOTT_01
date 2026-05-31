@@ -3,7 +3,7 @@ import axios from 'axios';
 
 const BACKEND_URL =
     process.env.EXPO_PUBLIC_BACKEND_URL ||
-    'https://ott-education-be.onrender.com';
+    'https://ott-education-balancer-1307761869.ap-southeast-1.elb.amazonaws.com';
 
 // Dùng absolute URL - relative URL không hoạt động trên React Native mobile
 const API_BASE_URL = `${BACKEND_URL}/api/conversation-settings`;
@@ -70,4 +70,3 @@ export const reportUser = async (reportedUserId, reason, token) => {
     );
     return response.data;
 };
-

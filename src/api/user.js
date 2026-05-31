@@ -3,7 +3,8 @@ import localStorage from '../utils/localStoragePolyfill';
 import { getAccessTokenSync } from '../utils/authHeader';
 import '../api/axiosConfig';
 
-const DEFAULT_BACKEND_URL = 'https://ott-education-be.onrender.com';
+const DEFAULT_BACKEND_URL =
+    'https://ott-education-balancer-1307761869.ap-southeast-1.elb.amazonaws.com';
 
 const sanitizeUrl = (value) =>
     (value || '')
@@ -17,7 +18,7 @@ const BACKEND_BASE_URL = sanitizeUrl(
     /^https?:\/\//i.test(RAW_BACKEND_URL)
         ? RAW_BACKEND_URL
         : RAW_BACKEND_URL
-          ? `http://${RAW_BACKEND_URL}`
+          ? `https://${RAW_BACKEND_URL}`
           : DEFAULT_BACKEND_URL,
 ).replace(/\/api$/i, '');
 
@@ -35,10 +36,15 @@ const getToken = () => {
     // Try new authHeader first (sync version for fetch calls)
     const token = getAccessTokenSync();
     if (token) return token;
-    
+
     // Fallback to localStorage for backward compatibility
-    const fallback = localStorage.getItem('accessToken') || localStorage.getItem('token');
-    return fallback ? String(fallback).trim().replace(/^Bearer\s+/i, '') : null;
+    const fallback =
+        localStorage.getItem('accessToken') || localStorage.getItem('token');
+    return fallback
+        ? String(fallback)
+              .trim()
+              .replace(/^Bearer\s+/i, '')
+        : null;
 };
 
 const buildError = (message, status, code) => {
@@ -558,14 +564,17 @@ export const fetchUserById = async (userId) => {
 };
 
 export const searchUsersByPhones = async (phones) => {
-    const response = await fetch(`${API_BASE_URL}/user/batch-search-by-phones`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${getToken()}`,
+    const response = await fetch(
+        `${API_BASE_URL}/user/batch-search-by-phones`,
+        {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${getToken()}`,
+            },
+            body: JSON.stringify(phones),
         },
-        body: JSON.stringify(phones),
-    });
+    );
     await throwIfNotOk(response, 'Failed to batch search users by phones');
     return response.json();
 };

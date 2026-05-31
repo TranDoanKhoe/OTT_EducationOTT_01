@@ -9,7 +9,7 @@ const HISTORY_PAGE_SIZE = 50;
 export const useInfiniteScroll = (
     conversationId: string | null,
     isGroup: boolean,
-    userId: string
+    userId: string,
 ) => {
     const [historyPage, setHistoryPage] = useState(0);
     const [hasMoreHistory, setHasMoreHistory] = useState(true);
@@ -17,7 +17,12 @@ export const useInfiniteScroll = (
     const isLoadingRef = useRef(false);
 
     const loadMoreMessages = useCallback(async () => {
-        if (!conversationId || !userId || isLoadingRef.current || !hasMoreHistory) {
+        if (
+            !conversationId ||
+            !userId ||
+            isLoadingRef.current ||
+            !hasMoreHistory
+        ) {
             return [];
         }
 
@@ -40,7 +45,7 @@ export const useInfiniteScroll = (
                     userId,
                     nextPage,
                     HISTORY_PAGE_SIZE,
-                    token
+                    token,
                 );
             } else {
                 olderMessages = await getChatHistory(
@@ -48,7 +53,7 @@ export const useInfiniteScroll = (
                     userId,
                     nextPage,
                     HISTORY_PAGE_SIZE,
-                    token
+                    token,
                 );
             }
 
@@ -84,5 +89,6 @@ export const useInfiniteScroll = (
         isLoadingMore,
         hasMoreHistory,
         reset,
+        resetPagination: reset,
     };
 };

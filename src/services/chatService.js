@@ -5,6 +5,7 @@ import {
     sendGroupMessage,
     sendMessage,
     uploadFile,
+    waitForWebSocketConnection,
 } from '../api/messageApi';
 
 const getToken = () =>
@@ -20,13 +21,17 @@ export const fetchGroupHistory = async (groupId) => {
     return getGroupChatHistory(groupId, token);
 };
 
-export const pushPrivateMessage = (payload) => {
+export const pushPrivateMessage = async (payload) => {
     const token = getToken();
+    const ready = await waitForWebSocketConnection(15000);
+    if (!ready) return false;
     return sendMessage('/app/chat.send', payload, token);
 };
 
-export const pushGroupMessage = (payload) => {
+export const pushGroupMessage = async (payload) => {
     const token = getToken();
+    const ready = await waitForWebSocketConnection(15000);
+    if (!ready) return false;
     return sendGroupMessage('/app/chat.send', payload, token);
 };
 

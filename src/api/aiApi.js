@@ -4,7 +4,7 @@ import axios from 'axios';
 // Backend dùng /ai không phải /api/ai
 const BACKEND_URL =
     process.env.EXPO_PUBLIC_BACKEND_URL ||
-    'https://ott-education-be.onrender.com';
+    'https://ott-education-balancer-1307761869.ap-southeast-1.elb.amazonaws.com';
 const API_BASE_URL = `${BACKEND_URL}/ai`;
 const AI_REQUEST_TIMEOUT_MS = 45000;
 
@@ -128,7 +128,11 @@ export const getAiConversations = async (token) => {
         timeout: AI_REQUEST_TIMEOUT_MS,
     });
     const payload = unwrapPayload(response.data);
-    return Array.isArray(payload) ? payload : (Array.isArray(payload?.conversations) ? payload.conversations : []);
+    return Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload?.conversations)
+          ? payload.conversations
+          : [];
 };
 
 export const createAiConversation = async (token, title = '') => {
@@ -146,10 +150,17 @@ export const getAiConversationMessages = async (token, conversationId) => {
         { headers: authHeaders(token), timeout: AI_REQUEST_TIMEOUT_MS },
     );
     const payload = unwrapPayload(response.data);
-    return { messages: Array.isArray(payload?.messages) ? payload.messages : [] };
+    return {
+        messages: Array.isArray(payload?.messages) ? payload.messages : [],
+    };
 };
 
-export const saveAiConversationMessages = async (token, conversationId, messages, title) => {
+export const saveAiConversationMessages = async (
+    token,
+    conversationId,
+    messages,
+    title,
+) => {
     const response = await axios.post(
         `${API_BASE_URL}/conversations/${conversationId}/messages`,
         { messages, title },

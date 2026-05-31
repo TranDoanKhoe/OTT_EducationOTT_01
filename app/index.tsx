@@ -1,13 +1,12 @@
 // @ts-nocheck
 import { useEffect, useState } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
-import { useRouter, useRootNavigationState } from 'expo-router';
+import { useRouter } from 'expo-router';
 import localStorage from '../src/utils/localStoragePolyfill';
 
 export default function Index() {
     const router = useRouter();
-    // Chờ Root Layout mount xong mới điều hướng
-    const rootNavState = useRootNavigationState();
+    const [isReady, setIsReady] = useState(false);
     const [authChecked, setAuthChecked] = useState(false);
     const [target, setTarget] = useState(null);
 
@@ -17,7 +16,9 @@ export default function Index() {
             try {
                 await localStorage.initPromise;
                 // Kiểm tra cả accessToken và token để tương thích với login flow
-                const token = localStorage.getItem('accessToken') || localStorage.getItem('token');
+                const token =
+                    localStorage.getItem('accessToken') ||
+                    localStorage.getItem('token');
                 setTarget(token ? '/(tabs)' : '/login');
             } catch (error) {
                 console.error('Auth check error:', error);
@@ -29,11 +30,15 @@ export default function Index() {
         checkAuth();
     }, [router]);
 
-    // Bước 2: Chỉ điều hướng khi Root Layout đã mount xong VÀ đã biết target
     useEffect(() => {
-        if (!authChecked || !target || !rootNavState?.key) return;
+        setIsReady(true);
+    }, []);
+
+    // Bước 2: Chỉ điều hướng khi đã biết target
+    useEffect(() => {
+        if (!isReady || !authChecked || !target) return;
         router.replace(target);
-    }, [authChecked, target, rootNavState?.key, router]);
+    }, [isReady, authChecked, target, router]);
 
     return (
         <View style={styles.container}>

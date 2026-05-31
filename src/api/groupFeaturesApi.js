@@ -3,12 +3,11 @@ import axios from 'axios';
 
 const BACKEND_URL =
     process.env.EXPO_PUBLIC_BACKEND_URL ||
-    'https://ott-education-be.onrender.com';
+    'https://ott-education-balancer-1307761869.ap-southeast-1.elb.amazonaws.com';
 
 // Dùng BACKEND_URL trực tiếp - không dùng relative URL vì mobile không có base URL
 const API_URL = (
-    process.env.EXPO_PUBLIC_API_URL ||
-    `${BACKEND_URL}/api`
+    process.env.EXPO_PUBLIC_API_URL || `${BACKEND_URL}/api`
 ).replace(/\/$/, '');
 
 // Helper to get token
@@ -157,4 +156,3 @@ export const votePoll = async (pollId, optionIndex, token) => {
         throw error;
     }
 };
-

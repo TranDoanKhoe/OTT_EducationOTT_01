@@ -8,11 +8,21 @@ import SockJS from 'sockjs-client';
 // Lấy backend URL trực tiếp - backend dùng /message không phải /api/message
 const BACKEND_URL =
     process.env.EXPO_PUBLIC_BACKEND_URL ||
-    'https://ott-education-be.onrender.com';
+    'https://ott-education-balancer-1307761869.ap-southeast-1.elb.amazonaws.com';
 const API_BASE_URL = `${BACKEND_URL}/message`;
-const SOCKJS_URL =
+const RAW_API_URL = process.env.EXPO_PUBLIC_API_URL || '';
+const API_BASE_URL_ALT = RAW_API_URL
+    ? `${RAW_API_URL.replace(/\/$/, '')}/message`
+    : null;
+const API_BASE_URLS = Array.from(
+    new Set([API_BASE_URL, API_BASE_URL_ALT].filter(Boolean)),
+);
+const RAW_WS_URL =
     process.env.EXPO_PUBLIC_WS_URL ||
-    'https://ott-education-be.onrender.com/ws';
+    'https://ott-education-balancer-1307761869.ap-southeast-1.elb.amazonaws.com/ws';
+const SOCKJS_URL = RAW_WS_URL.replace(/^wss?:\/\//i, (match) =>
+    match.toLowerCase().startsWith('wss') ? 'https://' : 'http://',
+);
 
 let stompClient = null;
 let _globalCallSignalHandler = null;
@@ -58,7 +68,9 @@ eventEmitter.on('auth:tokenRefreshed', (event) => {
                 _lastConnectionParams.onFriendRequestAcceptedCallback,
                 _lastConnectionParams.onFriendRequestRejectedCallback,
                 _lastConnectionParams.onTypingCallback,
-            ).catch((err) => console.error('Failed to reconnect WebSocket:', err));
+            ).catch((err) =>
+                console.error('Failed to reconnect WebSocket:', err),
+            );
         }
     }
 });
@@ -76,6 +88,11 @@ async function ensureConnected(timeoutMs = 15000) {
         };
         setTimeout(check, 200);
     });
+}
+
+// Public helper to wait for STOMP connection before sending.
+export function waitForWebSocketConnection(timeoutMs = 15000) {
+    return ensureConnected(timeoutMs);
 }
 
 export function registerCallSignalHandler(handler) {
@@ -181,24 +198,30 @@ export const uploadFile = async (
             filesCount: files.length,
         });
 
-        const response = await axios.post(
-            `${API_BASE_URL}/upload-file`,
-            formData,
-            {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                    // Do NOT set Content-Type manually — axios sets it with the correct boundary
-                },
-            },
-        );
-        console.log('Upload response:', response.data);
-        return response.data;
+        let lastError = null;
+        for (const baseUrl of API_BASE_URLS) {
+            const url = `${baseUrl}/upload-file`;
+            try {
+                const response = await axios.post(url, formData, {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                        // Do NOT set Content-Type manually — axios sets it with the correct boundary
+                    },
+                });
+                console.log('Upload response:', response.data);
+                return response.data;
+            } catch (error) {
+                lastError = error;
+                console.error('Error uploading file:', {
+                    url,
+                    status: error.response?.status,
+                    data: error.response?.data,
+                    message: error.message,
+                });
+            }
+        }
+        throw lastError;
     } catch (error) {
-        console.error('Error uploading file:', {
-            status: error.response?.status,
-            data: error.response?.data,
-            message: error.message,
-        });
         throw error;
     }
 };
@@ -301,7 +324,10 @@ export const pinMessage = async (messageId, userId, token) => {
         console.log('Pinned message:', messageId);
         return true;
     } catch (error) {
-        console.error('Error pinning message:', error.response?.data || error.message);
+        console.error(
+            'Error pinning message:',
+            error.response?.data || error.message,
+        );
         return false;
     }
 };
@@ -317,7 +343,10 @@ export const unpinMessage = async (messageId, userId, token) => {
         console.log('Unpinned message:', messageId);
         return true;
     } catch (error) {
-        console.error('Error unpinning message:', error.response?.data || error.message);
+        console.error(
+            'Error unpinning message:',
+            error.response?.data || error.message,
+        );
         return false;
     }
 };
@@ -422,7 +451,9 @@ export function connectWebSocket(
         stompClient = new Client({
             webSocketFactory: () => {
                 console.log('Connecting to SockJS:', SOCKJS_URL);
-                return new SockJS(SOCKJS_URL);
+                return new SockJS(SOCKJS_URL, null, {
+                    transports: ['xhr-streaming', 'xhr-polling'],
+                });
             },
             connectHeaders: {
                 Authorization: `Bearer ${token}`,
@@ -562,7 +593,9 @@ export function connectWebSocket(
                                     const parsedMessage = JSON.parse(
                                         message.body,
                                     );
-                                    const handler = _globalTypingHandler || onTypingCallback;
+                                    const handler =
+                                        _globalTypingHandler ||
+                                        onTypingCallback;
                                     if (handler) {
                                         handler(parsedMessage);
                                     }
@@ -869,7 +902,8 @@ export function connectWebSocket(
                     (message) => {
                         try {
                             const parsedMessage = JSON.parse(message.body);
-                            const handler = _globalTypingHandler || onTypingCallback;
+                            const handler =
+                                _globalTypingHandler || onTypingCallback;
                             if (handler) {
                                 handler(parsedMessage);
                             }

@@ -17,7 +17,12 @@ import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { fetchUserGroups } from '../../src/api/groupApi';
-import { getChatHistory, getGroupChatHistory, connectWebSocket, disconnectWebSocket } from '../../src/api/messageApi';
+import {
+    getChatHistory,
+    getGroupChatHistory,
+    connectWebSocket,
+    disconnectWebSocket,
+} from '../../src/api/messageApi';
 import {
     fetchFriendsList,
     fetchPendingFriendRequests,
@@ -134,11 +139,11 @@ export default function ChatListScreen() {
         return Promise.all(jobs);
     }, []);
 
-    // Ping server để wake-up Render.com trước khi fetch data thật
+    // Ping server để đảm bảo backend sẵn sàng trước khi fetch data thật
     const wakeServer = async () => {
         const BACKEND_URL =
             process.env.EXPO_PUBLIC_BACKEND_URL ||
-            'https://ott-education-be.onrender.com';
+            'https://ott-education-balancer-1307761869.ap-southeast-1.elb.amazonaws.com';
         try {
             await fetch(`${BACKEND_URL}/actuator/health`, { method: 'GET' });
         } catch {
@@ -289,44 +294,77 @@ export default function ChatListScreen() {
     // Connect STOMP once chats are first loaded
     useEffect(() => {
         if (chats.length === 0 || stompConnectedRef.current) return;
-        const token = localStorage.getItem('accessToken') || localStorage.getItem('token');
+        const token =
+            localStorage.getItem('accessToken') ||
+            localStorage.getItem('token');
         const userId = localStorage.getItem('userId');
         if (!token || !userId) return;
 
-        const groupIds = chats.filter((c) => !c.isPrivate).map((c) => c.id).filter(Boolean);
+        const groupIds = chats
+            .filter((c) => !c.isPrivate)
+            .map((c) => c.id)
+            .filter(Boolean);
 
         const handleNewMessage = (msg) => {
-            const chatId = msg.groupId ? String(msg.groupId)
-                : String(msg.senderId !== userId ? msg.senderId : msg.receiverId || '');
+            const chatId = msg.groupId
+                ? String(msg.groupId)
+                : String(
+                      msg.senderId !== userId
+                          ? msg.senderId
+                          : msg.receiverId || '',
+                  );
             if (!chatId) return;
-            const preview = msg.recalled ? 'Tin nhắn đã thu hồi'
-                : msg.type && msg.type !== 'TEXT' ? 'Tin nhắn tệp'
-                : (msg.content || '');
-            setChats((prev) => prev.map((c) =>
-                String(c.id) === chatId ? { ...c, lastMessage: preview } : c
-            ));
-            setUnreadMap((prev) => ({ ...prev, [chatId]: (prev[chatId] || 0) + 1 }));
+            const preview = msg.recalled
+                ? 'Tin nhắn đã thu hồi'
+                : msg.type && msg.type !== 'TEXT'
+                  ? 'Tin nhắn tệp'
+                  : msg.content || '';
+            setChats((prev) =>
+                prev.map((c) =>
+                    String(c.id) === chatId
+                        ? { ...c, lastMessage: preview }
+                        : c,
+                ),
+            );
+            setUnreadMap((prev) => ({
+                ...prev,
+                [chatId]: (prev[chatId] || 0) + 1,
+            }));
         };
 
         // Cập nhật trạng thái online/offline realtime
         const handleStatusChange = (statusEvent) => {
             if (!statusEvent?.userId) return;
-            setChats((prev) => prev.map((c) =>
-                c.isPrivate && String(c.id) === String(statusEvent.userId)
-                    ? { ...c, isOnline: statusEvent.online === true || statusEvent.status === 'ONLINE' }
-                    : c,
-            ));
+            setChats((prev) =>
+                prev.map((c) =>
+                    c.isPrivate && String(c.id) === String(statusEvent.userId)
+                        ? {
+                              ...c,
+                              isOnline:
+                                  statusEvent.online === true ||
+                                  statusEvent.status === 'ONLINE',
+                          }
+                        : c,
+                ),
+            );
         };
 
         connectWebSocket(
-            token, userId,
+            token,
+            userId,
             handleNewMessage,
-            null, null, null, null,
+            null,
+            null,
+            null,
+            null,
             groupIds,
-            null, null,
+            null,
+            null,
             handleStatusChange,
         )
-            .then(() => { stompConnectedRef.current = true; })
+            .then(() => {
+                stompConnectedRef.current = true;
+            })
             .catch(() => {});
     }, [chats, focusCount]);
 
@@ -336,10 +374,9 @@ export default function ChatListScreen() {
             stompConnectedRef.current = false;
             setFocusCount((n) => n + 1);
             return () => {
-                disconnectWebSocket();
                 stompConnectedRef.current = false;
             };
-        }, [])
+        }, []),
     );
 
     const onRefresh = () => {
@@ -383,7 +420,11 @@ export default function ChatListScreen() {
 
     // Điều hướng vào khung chat
     const openChat = (chatItem) => {
-        setUnreadMap((prev) => { const next = { ...prev }; delete next[String(chatItem.id)]; return next; });
+        setUnreadMap((prev) => {
+            const next = { ...prev };
+            delete next[String(chatItem.id)];
+            return next;
+        });
         router.push({
             pathname: `/chat/${chatItem.id}`,
             params: {
@@ -419,7 +460,9 @@ export default function ChatListScreen() {
                     ) : (
                         <Text style={styles.avatarText}>{initial}</Text>
                     )}
-                    {!isGroup && item.isOnline && <View style={styles.onlineDot} />}
+                    {!isGroup && item.isOnline && (
+                        <View style={styles.onlineDot} />
+                    )}
                     {isGroup && (
                         <View style={styles.groupBadge}>
                             <MaterialIcons name="group" size={8} color="#fff" />
@@ -427,21 +470,35 @@ export default function ChatListScreen() {
                     )}
                     {unread > 0 && (
                         <View style={styles.unreadBadge}>
-                            <Text style={styles.unreadText}>{unread > 99 ? '99+' : unread}</Text>
+                            <Text style={styles.unreadText}>
+                                {unread > 99 ? '99+' : unread}
+                            </Text>
                         </View>
                     )}
                 </View>
 
                 <View style={styles.chatInfo}>
                     <View style={styles.chatNameRow}>
-                        <Text style={[styles.chatName, unread > 0 && { fontWeight: '700' }]} numberOfLines={1}>
+                        <Text
+                            style={[
+                                styles.chatName,
+                                unread > 0 && { fontWeight: '700' },
+                            ]}
+                            numberOfLines={1}
+                        >
                             {item.name}
                         </Text>
                         {isGroup && (
                             <Text style={styles.groupTagText}>Nhóm</Text>
                         )}
                     </View>
-                    <Text style={[styles.lastMessage, unread > 0 && { color: '#111', fontWeight: '600' }]} numberOfLines={1}>
+                    <Text
+                        style={[
+                            styles.lastMessage,
+                            unread > 0 && { color: '#111', fontWeight: '600' },
+                        ]}
+                        numberOfLines={1}
+                    >
                         {item.lastMessage || EMPTY_PREVIEW}
                     </Text>
                 </View>
@@ -527,7 +584,8 @@ export default function ChatListScreen() {
                             ⏳ Server đang khởi động...
                         </Text>
                         <Text style={styles.wakingSubtitle}>
-                            Render.com free tier cần 30–60 giây để thức dậy.
+                            Backend có thể cần vài chục giây để phản hồi lần
+                            đầu.
                             {'\n'}Vui lòng đợi, đang kết nối lại...
                         </Text>
                     </>

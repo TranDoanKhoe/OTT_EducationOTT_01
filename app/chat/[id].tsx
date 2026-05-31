@@ -47,6 +47,7 @@ import {
     sendMessage,
     sendGroupMessage,
     disconnectWebSocket,
+    waitForWebSocketConnection,
     uploadFile,
     getPinnedMessages,
     pinMessage,
@@ -625,7 +626,6 @@ export default function ChatScreen() {
                 hasSentTypingRef.current = false;
             }
             setIsPeerTyping(false);
-            disconnectWebSocket();
         };
     }, [
         applyDeleteLocal,
@@ -1022,6 +1022,11 @@ export default function ChatScreen() {
         const replyId = replyToMessage ? getMessageId(replyToMessage) : null;
         setReplyToMessage(null);
         try {
+            const ready = await waitForWebSocketConnection(15000);
+            if (!ready) {
+                Alert.alert('Lỗi', 'Kết nối realtime chưa sẵn sàng, thử lại sau');
+                return;
+            }
             if (imagesToUpload.length > 0) {
                 // React Native FormData uses URI object format, not browser File
                 const files = imagesToUpload.map((img, idx) => ({

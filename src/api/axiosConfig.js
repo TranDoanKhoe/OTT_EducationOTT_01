@@ -10,7 +10,9 @@ import {
 } from '../utils/authHeader';
 import eventEmitter from '../utils/eventEmitter';
 
-const RAW_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://ott-education-be.onrender.com';
+const RAW_BACKEND_URL =
+    process.env.EXPO_PUBLIC_BACKEND_URL ||
+    'https://ott-education-balancer-1307761869.ap-southeast-1.elb.amazonaws.com';
 
 // Sanitize URL (remove trailing slash, ensure https)
 const BACKEND_URL = (
@@ -22,7 +24,7 @@ const BACKEND_URL = (
 // Gán baseURL toàn cục
 axios.defaults.baseURL = BACKEND_URL;
 
-// Timeout 30s cho Render.com cold start
+// Timeout 30s để tránh treo request trên mobile
 axios.defaults.timeout = 30000;
 
 console.log('📡 Axios configured with baseURL:', BACKEND_URL);
@@ -51,7 +53,7 @@ axios.interceptors.request.use(
     },
     (error) => {
         return Promise.reject(error);
-    }
+    },
 );
 
 // ============ RESPONSE INTERCEPTOR (REFRESH ON 401/403) ============
@@ -85,7 +87,8 @@ axios.interceptors.response.use(
                     .then((token) => {
                         originalRequest._retry = true;
                         originalRequest.headers = originalRequest.headers || {};
-                        originalRequest.headers['Authorization'] = `Bearer ${token}`;
+                        originalRequest.headers['Authorization'] =
+                            `Bearer ${token}`;
                         return axios(originalRequest);
                     })
                     .catch((err) => Promise.reject(err));
@@ -108,7 +111,7 @@ axios.interceptors.response.use(
                 const { data } = await axios.post(
                     `${BACKEND_URL}/auth/refresh`,
                     { refreshToken },
-                    { headers: { 'Content-Type': 'application/json' } }
+                    { headers: { 'Content-Type': 'application/json' } },
                 );
 
                 const newToken = data.accessToken;
@@ -143,7 +146,7 @@ axios.interceptors.response.use(
         }
 
         return Promise.reject(error);
-    }
+    },
 );
 
 export default axios;

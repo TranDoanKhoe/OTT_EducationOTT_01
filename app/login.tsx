@@ -70,7 +70,7 @@ export default function Login() {
         try {
             const apiUrl =
                 process.env.EXPO_PUBLIC_BACKEND_URL ||
-                'https://ott-education-be.onrender.com';
+                'https://ott-education-balancer-1307761869.ap-southeast-1.elb.amazonaws.com';
             const normalizedBase = apiUrl.replace(/\/$/, '');
             const endpoints = [
                 `${normalizedBase}/auth/login`,
@@ -231,7 +231,9 @@ export default function Login() {
                         <TouchableOpacity
                             onPress={() => router.push('/forgot-password')}
                         >
-                            <Text style={styles.forgotText}>Quên mật khẩu?</Text>
+                            <Text style={styles.forgotText}>
+                                Quên mật khẩu?
+                            </Text>
                         </TouchableOpacity>
                     </View>
 
@@ -404,5 +406,3 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
     },
 });
-
-

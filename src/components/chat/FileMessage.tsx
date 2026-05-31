@@ -29,6 +29,19 @@ const FileMessage: React.FC<FileMessageProps> = ({
 }) => {
     const [isDownloading, setIsDownloading] = useState(false);
 
+    const decodeFileName = (name?: string) => {
+        if (!name) return '';
+        const cleaned = name.replace(/\+/g, ' ');
+        try {
+            return decodeURIComponent(cleaned);
+        } catch {
+            return cleaned;
+        }
+    };
+
+    const normalizedFileName = decodeFileName(fileName) || 'File';
+    const safeFileName = normalizedFileName.replace(/[\\/:*?"<>|]/g, '_');
+
     const getFileIcon = () => {
         const ext = fileName?.split('.').pop()?.toLowerCase();
         if (ext === 'pdf') return 'picture-as-pdf';
@@ -52,7 +65,7 @@ const FileMessage: React.FC<FileMessageProps> = ({
 
             const fileUri =
                 FileSystem.documentDirectory +
-                (fileName || 'file_' + Date.now());
+                (safeFileName || 'file_' + Date.now());
 
             const downloadResult = await FileSystem.downloadAsync(
                 fileUrl,
@@ -103,7 +116,7 @@ const FileMessage: React.FC<FileMessageProps> = ({
             </View>
             <View style={styles.fileInfo}>
                 <Text style={styles.fileName} numberOfLines={2}>
-                    {fileName || 'File'}
+                    {normalizedFileName}
                 </Text>
                 {fileSize && (
                     <Text style={styles.fileSize}>

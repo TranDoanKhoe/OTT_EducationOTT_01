@@ -3,7 +3,9 @@ import { getAccessTokenSync } from '../utils/authHeader';
 import axios from 'axios';
 
 // Lấy backend URL trực tiếp từ env - không dùng URL tương đối trên mobile
-const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://ott-education-be.onrender.com';
+const BACKEND_URL =
+    process.env.EXPO_PUBLIC_BACKEND_URL ||
+    'https://ott-education-balancer-1307761869.ap-southeast-1.elb.amazonaws.com';
 // Backend endpoint là /group (không có /api prefix - Vite proxy dày /api rồi xóa nó)
 const API_BASE_URL = `${BACKEND_URL}/group`;
 
@@ -318,7 +320,10 @@ export const updateGroupInfo = async (groupId, updates, token) => {
 
         // Handle avatar - supports URI (from ImagePicker) or data URI
         if (updates.avatarGroup) {
-            if (updates.avatarGroup.startsWith('file://') || updates.avatarGroup.startsWith('content://')) {
+            if (
+                updates.avatarGroup.startsWith('file://') ||
+                updates.avatarGroup.startsWith('content://')
+            ) {
                 // React Native file URI from ImagePicker
                 formData.append('avatarGroup', {
                     uri: updates.avatarGroup,
@@ -475,5 +480,3 @@ export const leaveGroup = async (groupId, userId, token) => {
         throw error;
     }
 };
-
-
