@@ -11,6 +11,7 @@ import {
     RefreshControl,
     Image,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { fetchGroupInvites, acceptGroupInvite, rejectGroupInvite } from '../../src/api/groupApi';
@@ -24,6 +25,17 @@ export default function GroupInvitesScreen() {
     const [processingId, setProcessingId] = useState(null);
 
     const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
+
+    const getInviteId = (invite) =>
+        invite?.inviteId || invite?.id || invite?._id || invite?.requestId;
+
+    const handleBack = () => {
+        if (router.canGoBack?.()) {
+            router.back();
+            return;
+        }
+        router.replace('/contacts');
+    };
 
     const loadInvites = useCallback(async () => {
         try {
@@ -47,11 +59,15 @@ export default function GroupInvitesScreen() {
     };
 
     const handleAccept = async (invite) => {
-        const inviteId = invite.id || invite._id;
+        const inviteId = getInviteId(invite);
+        if (!inviteId) {
+            Alert.alert('Lá»—i', 'KhÃ´ng tÃ¬m tháº¥y mÃ£ lá»i má»i');
+            return;
+        }
         setProcessingId(inviteId);
         try {
             await acceptGroupInvite(inviteId, token);
-            setInvites((prev) => prev.filter((i) => (i.id || i._id) !== inviteId));
+            setInvites((prev) => prev.filter((i) => getInviteId(i) !== inviteId));
             Alert.alert('Thành công', `Đã tham gia nhóm ${invite.groupName || 'nhóm'}`);
         } catch (e) {
             Alert.alert('Lỗi', 'Không thể chấp nhận lời mời');
@@ -61,7 +77,11 @@ export default function GroupInvitesScreen() {
     };
 
     const handleReject = async (invite) => {
-        const inviteId = invite.id || invite._id;
+        const inviteId = getInviteId(invite);
+        if (!inviteId) {
+            Alert.alert('Lá»—i', 'KhÃ´ng tÃ¬m tháº¥y mÃ£ lá»i má»i');
+            return;
+        }
         Alert.alert(
             'Từ chối lời mời',
             `Bạn có chắc muốn từ chối lời mời vào nhóm ${invite.groupName || ''}?`,
@@ -74,7 +94,7 @@ export default function GroupInvitesScreen() {
                         setProcessingId(inviteId);
                         try {
                             await rejectGroupInvite(inviteId, token);
-                            setInvites((prev) => prev.filter((i) => (i.id || i._id) !== inviteId));
+                            setInvites((prev) => prev.filter((i) => getInviteId(i) !== inviteId));
                         } catch (e) {
                             Alert.alert('Lỗi', 'Không thể từ chối lời mời');
                         } finally {
@@ -87,7 +107,7 @@ export default function GroupInvitesScreen() {
     };
 
     const renderInvite = ({ item }) => {
-        const inviteId = item.id || item._id;
+        const inviteId = getInviteId(item);
         const isProcessing = processingId === inviteId;
 
         return (
@@ -132,25 +152,21 @@ export default function GroupInvitesScreen() {
         );
     };
 
-    if (loading) {
-        return (
-            <View style={styles.center}>
-                <ActivityIndicator size="large" color="#10b981" />
-            </View>
-        );
-    }
-
     return (
-        <View style={styles.container}>
+        <SafeAreaView style={styles.container}>
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+                <TouchableOpacity onPress={handleBack} style={styles.backBtn}>
                     <MaterialIcons name="arrow-back" size={24} color="#065f46" />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Lời mời vào nhóm</Text>
                 <View style={{ width: 32 }} />
             </View>
 
-            {invites.length === 0 ? (
+            {loading ? (
+                <View style={styles.center}>
+                    <ActivityIndicator size="large" color="#10b981" />
+                </View>
+            ) : invites.length === 0 ? (
                 <View style={styles.emptyContainer}>
                     <MaterialIcons name="group" size={60} color="#d1fae5" />
                     <Text style={styles.emptyTitle}>Không có lời mời nào</Text>
@@ -161,7 +177,7 @@ export default function GroupInvitesScreen() {
             ) : (
                 <FlatList
                     data={invites}
-                    keyExtractor={(item) => String(item.id || item._id)}
+                    keyExtractor={(item, index) => String(getInviteId(item) || index)}
                     renderItem={renderInvite}
                     refreshControl={
                         <RefreshControl
@@ -174,7 +190,7 @@ export default function GroupInvitesScreen() {
                     contentContainerStyle={{ paddingVertical: 8 }}
                 />
             )}
-        </View>
+        </SafeAreaView>
     );
 }
 

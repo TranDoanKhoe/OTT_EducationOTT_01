@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import * as DocumentPicker from 'expo-document-picker';
 import { Audio } from 'expo-av';
+import { File, Paths } from 'expo-file-system';
 import {
     View,
     Text,
@@ -91,6 +92,15 @@ function InlineVideo({ uri }: { uri: string }) {
     );
 }
 
+const getAudioFileExtension = (message) => {
+    const source = decodeURIComponent(
+        String(message?.fileName || message?.content || '').toLowerCase(),
+    );
+    const match = source.match(/\.(m4a|mp4|aac|mp3|wav|caf|webm|ogg)(?:\?|$)/i);
+    if (match?.[1]) return match[1].toLowerCase();
+    return 'm4a';
+};
+
 // Tự động cuộn đến cuối danh sách (nếu lộn ngược thì end là đầu mảng)
 export default function ChatScreen() {
     const { id, name, isPrivate } = useLocalSearchParams();
@@ -138,6 +148,8 @@ export default function ChatScreen() {
     const [recordingDuration, setRecordingDuration] = useState(0);
     const recordingRef = useRef(null);
     const recordTimerRef = useRef(null);
+    const playbackSoundRef = useRef(null);
+    const [playingAudioId, setPlayingAudioId] = useState(null);
     const [memberAvatarMap, setMemberAvatarMap] = useState<Record<string, string>>({});
 
     const flatListRef = useRef(null);
@@ -686,6 +698,100 @@ export default function ChatScreen() {
         setInputText((prev) => prev + emoji);
     };
 
+    const stopAudioPlayback = useCallback(async () => {
+        if (!playbackSoundRef.current) return;
+        try {
+            await playbackSoundRef.current.stopAsync();
+            await playbackSoundRef.current.unloadAsync();
+        } catch (_error) {
+            // Ignore cleanup failures from already-unloaded sounds.
+        } finally {
+            playbackSoundRef.current = null;
+            setPlayingAudioId(null);
+        }
+    }, []);
+
+    const playAudioMessage = useCallback(
+        async (message) => {
+            const audioUrl = message?.content;
+            const messageId = getMessageId(message);
+            if (!audioUrl || !messageId) return;
+
+            if (String(playingAudioId) === String(messageId)) {
+                await stopAudioPlayback();
+                return;
+            }
+
+            await stopAudioPlayback();
+
+            const playUri = async (uri) => {
+                await Audio.setAudioModeAsync({
+                    allowsRecordingIOS: false,
+                    playsInSilentModeIOS: true,
+                    shouldDuckAndroid: true,
+                    playThroughEarpieceAndroid: false,
+                });
+
+                const { sound } = await Audio.Sound.createAsync(
+                    { uri },
+                    { shouldPlay: true },
+                );
+                playbackSoundRef.current = sound;
+                setPlayingAudioId(messageId);
+                sound.setOnPlaybackStatusUpdate((status) => {
+                    if (status?.didJustFinish) {
+                        stopAudioPlayback();
+                    }
+                });
+            };
+
+            try {
+                await playUri(audioUrl);
+            } catch (error) {
+                try {
+                    const extension = getAudioFileExtension(message);
+                    if (extension === 'webm' || extension === 'ogg') {
+                        throw error;
+                    }
+
+                    const safeMessageId = String(messageId).replace(
+                        /[^a-zA-Z0-9_-]/g,
+                        '',
+                    );
+                    const localFile = new File(
+                        Paths.cache,
+                        `voice-${safeMessageId}.${extension}`,
+                    );
+                    if (!localFile.exists) {
+                        await File.downloadFileAsync(audioUrl, localFile, {
+                            idempotent: true,
+                        });
+                    }
+                    await playUri(localFile.uri);
+                } catch (fallbackError) {
+                    console.error('Play audio message error:', fallbackError);
+                    const extension = getAudioFileExtension(message);
+                    const isUnsupportedWebFormat =
+                        extension === 'webm' || extension === 'ogg';
+                    Alert.alert(
+                        'Lỗi',
+                        isUnsupportedWebFormat
+                            ? 'iPhone không hỗ trợ định dạng ghi âm WebM/OGG. Cần gửi voice dạng m4a/mp3 hoặc backend chuyển mã âm thanh.'
+                            : 'Không thể phát tin nhắn thoại',
+                    );
+                    await stopAudioPlayback();
+                }
+            }
+        },
+        [playingAudioId, stopAudioPlayback],
+    );
+
+    useEffect(() => {
+        return () => {
+            stopAudioPlayback();
+        };
+    }, [stopAudioPlayback]);
+
     const handleOpenForward = async (message) => {
         setMessageToForward(message);
         setForwardModalVisible(true);
@@ -1110,7 +1216,7 @@ export default function ChatScreen() {
                             </Text>
                         </View>
                     )}
-                    {item.type === 'IMAGE' && (
+                    {!item.recalled && item.type === 'IMAGE' && (
                         <View style={styles.imageGallery}>
                             {item.localImages ? (
                                 item.localImages.map((img, idx) => (
@@ -1130,7 +1236,7 @@ export default function ChatScreen() {
                         </View>
                     )}
 
-                    {item.type === 'ASSIGNMENT' && (
+                    {!item.recalled && item.type === 'ASSIGNMENT' && (
                         <View style={styles.assignmentCard}>
                             <MaterialIcons
                                 name="assignment"
@@ -1147,7 +1253,7 @@ export default function ChatScreen() {
                         </View>
                     )}
 
-                    {item.type === 'POLL' && (
+                    {!item.recalled && item.type === 'POLL' && (
                         <View style={styles.assignmentCard}>
                             <MaterialIcons
                                 name="poll"
@@ -1164,7 +1270,7 @@ export default function ChatScreen() {
                         </View>
                     )}
 
-                    {(item.type === 'FILE' || item.type === 'DOCUMENT') && (
+                    {!item.recalled && (item.type === 'FILE' || item.type === 'DOCUMENT') && (
                         <TouchableOpacity
                             style={styles.fileCard}
                             onPress={() => item.content && Linking.openURL(item.content)}
@@ -1184,24 +1290,32 @@ export default function ChatScreen() {
                         </TouchableOpacity>
                     )}
 
-                    {(item.type === 'VIDEO') && item.content && (
+                    {!item.recalled && item.type === 'VIDEO' && item.content && (
                         <InlineVideo uri={item.content} />
                     )}
 
-                    {(item.type === 'AUDIO') && item.content && (
+                    {!item.recalled && (item.type === 'AUDIO' || item.type === 'VOICE') && item.content && (
                         <TouchableOpacity
                             style={styles.fileCard}
-                            onPress={() => Linking.openURL(item.content)}
+                            onPress={() => playAudioMessage(item)}
                             activeOpacity={0.75}
                         >
-                            <MaterialIcons name="mic" size={28} color="#10b981" />
+                            <MaterialIcons
+                                name={
+                                    String(playingAudioId) === String(getMessageId(item))
+                                        ? 'pause-circle-filled'
+                                        : 'play-circle-filled'
+                                }
+                                size={28}
+                                color="#10b981"
+                            />
                             <Text style={styles.fileText}>Tin nhắn thoại</Text>
-                            <MaterialIcons name="play-circle-filled" size={24} color="#10b981" />
+                            <MaterialIcons name="mic" size={22} color="#10b981" />
                         </TouchableOpacity>
                     )}
 
                     {/* Render Content if it's purely text */}
-                    {![
+                    {(item.recalled || ![
                         'IMAGE',
                         'ASSIGNMENT',
                         'POLL',
@@ -1209,7 +1323,31 @@ export default function ChatScreen() {
                         'DOCUMENT',
                         'VIDEO',
                         'AUDIO',
-                    ].includes(item.type) && (() => {
+                        'VOICE',
+                    ].includes(item.type)) && (() => {
+                        if (item.recalled) {
+                            return (
+                                <View style={styles.recalledContainer}>
+                                    <MaterialIcons
+                                        name="block"
+                                        size={14}
+                                        color={isMe ? '#d1fae5' : '#9ca3af'}
+                                    />
+                                    <Text
+                                        style={[
+                                            styles.messageText,
+                                            isMe
+                                                ? styles.myMessageText
+                                                : styles.theirMessageText,
+                                            styles.recalledText,
+                                            isMe && styles.myRecalledText,
+                                        ]}
+                                    >
+                                        {messageText}
+                                    </Text>
+                                </View>
+                            );
+                        }
                         const isVideoUrl = item.content &&
                             (item.content.includes('/video/upload/') ||
                              /\.(mp4|mov|avi|mkv|webm)(\?|$)/i.test(item.content));
@@ -2009,6 +2147,18 @@ const styles = StyleSheet.create({
     myPinnedTagText: { color: '#d1fae5' },
     theirPinnedTagText: { color: '#047857' },
     messageText: { fontSize: 16, lineHeight: 22 },
+    recalledContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+    },
+    recalledText: {
+        fontStyle: 'italic',
+        color: '#9ca3af',
+    },
+    myRecalledText: {
+        color: '#d1fae5',
+    },
     myMessageText: { color: '#fff' },
     theirMessageText: { color: '#111827' },
     timeText: { fontSize: 11, marginTop: 4, alignSelf: 'flex-end' },

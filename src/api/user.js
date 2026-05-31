@@ -1,4 +1,4 @@
-import * as FileSystem from 'expo-file-system/legacy';
+import { File, Paths } from 'expo-file-system';
 import localStorage from '../utils/localStoragePolyfill';
 import { getAccessTokenSync } from '../utils/authHeader';
 import '../api/axiosConfig';
@@ -74,16 +74,18 @@ const ensureUploadableAvatar = async (avatar) => {
     if (/^content:\/\//i.test(uri)) {
         const extensionMatch = safeName.match(/\.[A-Za-z0-9]+$/);
         const extension = extensionMatch ? extensionMatch[0] : '.jpg';
-        const cacheDir =
-            FileSystem.cacheDirectory || FileSystem.documentDirectory || '';
+        const tempFile = new File(
+            Paths.cache,
+            `avatar-upload-${Date.now()}${extension}`,
+        );
 
-        if (!cacheDir) {
+        /*
             throw buildError('Không tìm thấy thư mục tạm để tải ảnh');
         }
 
-        const tempPath = `${cacheDir}avatar-upload-${Date.now()}${extension}`;
-        await FileSystem.copyAsync({ from: uri, to: tempPath });
-        uri = tempPath;
+        */
+        new File(uri).copy(tempFile);
+        uri = tempFile.uri;
     }
 
     return {
@@ -163,9 +165,12 @@ export const updateUserProfile = async (data) => {
         const formData = new FormData();
 
         if (mode === 'json-file') {
-            let dir =
-                FileSystem.cacheDirectory || FileSystem.documentDirectory || '';
+            const requestFile = new File(
+                Paths.cache,
+                `request-${Date.now()}.json`,
+            );
 
+            /*
             // Fallback for environments where Expo directories are unavailable.
             if (
                 !dir &&
@@ -182,13 +187,10 @@ export const updateUserProfile = async (data) => {
                 );
             }
 
-            const requestFilePath = `${dir}request-${Date.now()}.json`;
-            await FileSystem.writeAsStringAsync(
-                requestFilePath,
-                JSON.stringify(requestData),
-            );
+            */
+            requestFile.write(JSON.stringify(requestData));
             formData.append('request', {
-                uri: requestFilePath,
+                uri: requestFile.uri,
                 name: 'request.json',
                 type: 'application/json',
             });

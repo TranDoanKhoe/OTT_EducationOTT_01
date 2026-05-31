@@ -31,6 +31,15 @@ let _globalTypingHandler = null;
 // Store connection params for reconnect after token refresh
 let _lastConnectionParams = null;
 
+const getLatestCallback = (name, fallback) => {
+    const latest = _lastConnectionParams?.[name];
+    return typeof latest === 'function'
+        ? latest
+        : typeof fallback === 'function'
+          ? fallback
+          : null;
+};
+
 // Helper to get token (try authHeader first, fallback to localStorage)
 const getToken = () => {
     const token = getAccessTokenSync();
@@ -514,7 +523,13 @@ export function connectWebSocket(
                                     normalizedMessage.id,
                                 )
                             ) {
-                                onMessageCallback(normalizedMessage);
+                                const callback = getLatestCallback(
+                                    'onMessageCallback',
+                                    onMessageCallback,
+                                );
+                                if (callback) {
+                                    callback(normalizedMessage);
+                                }
                             }
                         } catch (error) {
                             console.error('Error parsing message:', error);
@@ -574,7 +589,13 @@ export function connectWebSocket(
                                             normalizedMessage.id,
                                         )
                                     ) {
-                                        onMessageCallback(normalizedMessage);
+                                        const callback = getLatestCallback(
+                                            'onMessageCallback',
+                                            onMessageCallback,
+                                        );
+                                        if (callback) {
+                                            callback(normalizedMessage);
+                                        }
                                     }
                                 } catch (error) {
                                     console.error(
@@ -626,7 +647,13 @@ export function connectWebSocket(
                                 parsedMessage.id = parsedMessage._id;
                                 delete parsedMessage._id;
                             }
-                            onDeleteCallback(parsedMessage);
+                            const callback = getLatestCallback(
+                                'onDeleteCallback',
+                                onDeleteCallback,
+                            );
+                            if (callback) {
+                                callback(parsedMessage);
+                            }
                         } catch (error) {
                             console.error(
                                 'Error parsing delete notification:',
@@ -648,7 +675,13 @@ export function connectWebSocket(
                                 parsedMessage.id = parsedMessage._id;
                                 delete parsedMessage._id;
                             }
-                            onRecallCallback(parsedMessage);
+                            const callback = getLatestCallback(
+                                'onRecallCallback',
+                                onRecallCallback,
+                            );
+                            if (callback) {
+                                callback(parsedMessage);
+                            }
                         } catch (error) {
                             console.error(
                                 'Error parsing recall notification:',
@@ -670,10 +703,12 @@ export function connectWebSocket(
                                 parsedMessage.id = parsedMessage._id;
                                 delete parsedMessage._id;
                             }
-                            if (onPinCallback) {
-                                onPinCallback(parsedMessage);
-                            } else {
-                                console.warn('onPinCallback is not defined');
+                            const callback = getLatestCallback(
+                                'onPinCallback',
+                                onPinCallback,
+                            );
+                            if (callback) {
+                                callback(parsedMessage);
                             }
                         } catch (error) {
                             console.error(
@@ -696,10 +731,12 @@ export function connectWebSocket(
                                 parsedMessage.id = parsedMessage._id;
                                 delete parsedMessage._id;
                             }
-                            if (onUnpinCallback) {
-                                onUnpinCallback(parsedMessage);
-                            } else {
-                                console.warn('onUnpinCallback is not defined');
+                            const callback = getLatestCallback(
+                                'onUnpinCallback',
+                                onUnpinCallback,
+                            );
+                            if (callback) {
+                                callback(parsedMessage);
                             }
                         } catch (error) {
                             console.error(
@@ -722,10 +759,12 @@ export function connectWebSocket(
                                 parsedMessage.id = parsedMessage._id;
                                 delete parsedMessage._id;
                             }
-                            if (onEditCallback) {
-                                onEditCallback(parsedMessage);
-                            } else {
-                                console.warn('onEditCallback is not defined');
+                            const callback = getLatestCallback(
+                                'onEditCallback',
+                                onEditCallback,
+                            );
+                            if (callback) {
+                                callback(parsedMessage);
                             }
                         } catch (error) {
                             console.error(
@@ -747,8 +786,12 @@ export function connectWebSocket(
                                 'Friend request notification:',
                                 parsedMessage,
                             );
-                            if (onFriendRequestCallback) {
-                                onFriendRequestCallback(parsedMessage);
+                            const callback = getLatestCallback(
+                                'onFriendRequestCallback',
+                                onFriendRequestCallback,
+                            );
+                            if (callback) {
+                                callback(parsedMessage);
                             } else {
                                 console.warn(
                                     'onFriendRequestCallback is not defined',
@@ -770,8 +813,12 @@ export function connectWebSocket(
                     (message) => {
                         try {
                             const parsedMessage = JSON.parse(message.body);
-                            if (onFriendRequestCallback) {
-                                onFriendRequestCallback(parsedMessage);
+                            const callback = getLatestCallback(
+                                'onFriendRequestCallback',
+                                onFriendRequestCallback,
+                            );
+                            if (callback) {
+                                callback(parsedMessage);
                             }
                         } catch (error) {
                             console.error(
@@ -788,8 +835,12 @@ export function connectWebSocket(
                     (message) => {
                         try {
                             const parsedMessage = JSON.parse(message.body);
-                            if (onFriendRequestAcceptedCallback) {
-                                onFriendRequestAcceptedCallback(parsedMessage);
+                            const callback = getLatestCallback(
+                                'onFriendRequestAcceptedCallback',
+                                onFriendRequestAcceptedCallback,
+                            );
+                            if (callback) {
+                                callback(parsedMessage);
                             }
                         } catch (error) {
                             console.error(
@@ -806,8 +857,12 @@ export function connectWebSocket(
                     (message) => {
                         try {
                             const parsedMessage = JSON.parse(message.body);
-                            if (onFriendRequestRejectedCallback) {
-                                onFriendRequestRejectedCallback(parsedMessage);
+                            const callback = getLatestCallback(
+                                'onFriendRequestRejectedCallback',
+                                onFriendRequestRejectedCallback,
+                            );
+                            if (callback) {
+                                callback(parsedMessage);
                             }
                         } catch (error) {
                             console.error(
@@ -829,8 +884,12 @@ export function connectWebSocket(
                                 'Status change notification:',
                                 parsedMessage,
                             );
-                            if (onStatusChangeCallback) {
-                                onStatusChangeCallback(parsedMessage);
+                            const callback = getLatestCallback(
+                                'onStatusChangeCallback',
+                                onStatusChangeCallback,
+                            );
+                            if (callback) {
+                                callback(parsedMessage);
                             } else {
                                 console.warn(
                                     'onStatusChangeCallback is not defined',
@@ -856,8 +915,12 @@ export function connectWebSocket(
                                 'Call signal notification:',
                                 parsedMessage,
                             );
-                            if (onCallSignalCallback) {
-                                onCallSignalCallback(parsedMessage);
+                            const callback = getLatestCallback(
+                                'onCallSignalCallback',
+                                onCallSignalCallback,
+                            );
+                            if (callback) {
+                                callback(parsedMessage);
                             }
                             if (_globalCallSignalHandler) {
                                 _globalCallSignalHandler(parsedMessage);
@@ -882,8 +945,12 @@ export function connectWebSocket(
                                 '✅ Read receipt received:',
                                 parsedMessage,
                             );
-                            if (onReadCallback) {
-                                onReadCallback(parsedMessage);
+                            const callback = getLatestCallback(
+                                'onReadCallback',
+                                onReadCallback,
+                            );
+                            if (callback) {
+                                callback(parsedMessage);
                             } else {
                                 console.warn('onReadCallback is not defined');
                             }
@@ -903,7 +970,11 @@ export function connectWebSocket(
                         try {
                             const parsedMessage = JSON.parse(message.body);
                             const handler =
-                                _globalTypingHandler || onTypingCallback;
+                                _globalTypingHandler ||
+                                getLatestCallback(
+                                    'onTypingCallback',
+                                    onTypingCallback,
+                                );
                             if (handler) {
                                 handler(parsedMessage);
                             }
@@ -922,8 +993,12 @@ export function connectWebSocket(
                     (message) => {
                         try {
                             const parsedMessage = JSON.parse(message.body);
-                            if (onGroupCreateCallback) {
-                                onGroupCreateCallback(parsedMessage);
+                            const callback = getLatestCallback(
+                                'onGroupCreateCallback',
+                                onGroupCreateCallback,
+                            );
+                            if (callback) {
+                                callback(parsedMessage);
                             }
                         } catch (error) {
                             console.error(
@@ -940,8 +1015,12 @@ export function connectWebSocket(
                     (message) => {
                         try {
                             const parsedMessage = JSON.parse(message.body);
-                            if (onGroupUpdateCallback) {
-                                onGroupUpdateCallback(parsedMessage);
+                            const callback = getLatestCallback(
+                                'onGroupUpdateCallback',
+                                onGroupUpdateCallback,
+                            );
+                            if (callback) {
+                                callback(parsedMessage);
                             }
                         } catch (error) {
                             console.error(
@@ -958,8 +1037,12 @@ export function connectWebSocket(
                     (message) => {
                         try {
                             const parsedMessage = JSON.parse(message.body);
-                            if (onGroupDeleteCallback) {
-                                onGroupDeleteCallback(parsedMessage);
+                            const callback = getLatestCallback(
+                                'onGroupDeleteCallback',
+                                onGroupDeleteCallback,
+                            );
+                            if (callback) {
+                                callback(parsedMessage);
                             }
                         } catch (error) {
                             console.error(
@@ -976,8 +1059,12 @@ export function connectWebSocket(
                     (message) => {
                         try {
                             const parsedMessage = JSON.parse(message.body);
-                            if (onGroupInviteCallback) {
-                                onGroupInviteCallback(parsedMessage);
+                            const callback = getLatestCallback(
+                                'onGroupInviteCallback',
+                                onGroupInviteCallback,
+                            );
+                            if (callback) {
+                                callback(parsedMessage);
                             }
                         } catch (error) {
                             console.error(
