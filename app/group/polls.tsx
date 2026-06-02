@@ -69,7 +69,7 @@ export default function GroupPollsScreen() {
         <PollItem
             poll={item}
             currentUserId={userId}
-            onVote={(optionIndex) => handleVote(item.id || item._id, optionIndex)}
+            onVote={(pollId, optionIndex) => handleVote(pollId, optionIndex)}
         />
     );
 

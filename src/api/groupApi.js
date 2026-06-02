@@ -5,7 +5,7 @@ import axios from 'axios';
 // Lấy backend URL trực tiếp từ env - không dùng URL tương đối trên mobile
 const BACKEND_URL =
     process.env.EXPO_PUBLIC_BACKEND_URL ||
-    'https://ott-education-balancer-1307761869.ap-southeast-1.elb.amazonaws.com';
+    'http://ott-education-balancer-1307761869.ap-southeast-1.elb.amazonaws.com';
 // Backend endpoint là /group (không có /api prefix - Vite proxy dày /api rồi xóa nó)
 const API_BASE_URL = `${BACKEND_URL}/group`;
 

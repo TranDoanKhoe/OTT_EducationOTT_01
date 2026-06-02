@@ -9,7 +9,7 @@ const backendFromEnv = (process.env.EXPO_PUBLIC_BACKEND_URL || '')
     .replace(/\/$/, '');
 const BASE_URL =
     baseFromEnv ||
-    `${backendFromEnv || 'https://ott-education-balancer-1307761869.ap-southeast-1.elb.amazonaws.com'}/api`;
+    `${backendFromEnv || 'http://ott-education-balancer-1307761869.ap-southeast-1.elb.amazonaws.com'}/api`;
 
 const api = axios.create({
     baseURL: BASE_URL,

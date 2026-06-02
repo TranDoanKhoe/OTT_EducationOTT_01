@@ -3,7 +3,7 @@ import axios from 'axios';
 
 const BACKEND_URL =
     process.env.EXPO_PUBLIC_BACKEND_URL ||
-    'https://ott-education-balancer-1307761869.ap-southeast-1.elb.amazonaws.com';
+    'http://ott-education-balancer-1307761869.ap-southeast-1.elb.amazonaws.com';
 const API_BASE_URL = `${BACKEND_URL}/resources`;
 
 // Helper to get token

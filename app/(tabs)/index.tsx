@@ -143,7 +143,7 @@ export default function ChatListScreen() {
     const wakeServer = async () => {
         const BACKEND_URL =
             process.env.EXPO_PUBLIC_BACKEND_URL ||
-            'https://ott-education-balancer-1307761869.ap-southeast-1.elb.amazonaws.com';
+            'http://ott-education-balancer-1307761869.ap-southeast-1.elb.amazonaws.com';
         try {
             await fetch(`${BACKEND_URL}/actuator/health`, { method: 'GET' });
         } catch {
@@ -260,7 +260,39 @@ export default function ChatListScreen() {
                 dedupedChats,
                 token,
             );
-            setChats(chatsWithPreview);
+            
+            // Tích hợp trạng thái ghim và tắt thông báo cuộc trò chuyện
+            const chatsWithSettings = chatsWithPreview.map((chat) => {
+                try {
+                    const localData = localStorage.getItem(`conv_settings_${chat.id}`);
+                    if (localData) {
+                        const settings = JSON.parse(localData);
+                        return {
+                            ...chat,
+                            isPinned: settings.isPinned || false,
+                            isMuted: settings.isMuted || false,
+                            autoDeleteOption: settings.autoDeleteOption || 'off',
+                        };
+                    }
+                } catch (e) {
+                    console.log('Error reading conversation settings for chat', chat.id, e);
+                }
+                return {
+                    ...chat,
+                    isPinned: false,
+                    isMuted: false,
+                    autoDeleteOption: 'off',
+                };
+            });
+            
+            // Sắp xếp các cuộc trò chuyện đã ghim lên đầu danh sách
+            const sortedChats = [...chatsWithSettings].sort((a, b) => {
+                if (a.isPinned && !b.isPinned) return -1;
+                if (!a.isPinned && b.isPinned) return 1;
+                return 0;
+            });
+            
+            setChats(sortedChats);
         } catch (error) {
             setServerWaking(false);
             console.error('Lỗi khi tải danh sách chat:', error.message);
@@ -371,12 +403,14 @@ export default function ChatListScreen() {
     // Reconnect STOMP when screen regains focus (after returning from chat screen)
     useFocusEffect(
         useCallback(() => {
+            loadChats(); // Tải lại cuộc trò chuyện và các tùy chọn ghim/tắt thông báo khi quay về danh sách
+            loadPendingRequests();
             stompConnectedRef.current = false;
             setFocusCount((n) => n + 1);
             return () => {
                 stompConnectedRef.current = false;
             };
-        }, []),
+        }, [loadChats, loadPendingRequests]),
     );
 
     const onRefresh = () => {
@@ -479,15 +513,24 @@ export default function ChatListScreen() {
 
                 <View style={styles.chatInfo}>
                     <View style={styles.chatNameRow}>
-                        <Text
-                            style={[
-                                styles.chatName,
-                                unread > 0 && { fontWeight: '700' },
-                            ]}
-                            numberOfLines={1}
-                        >
-                            {item.name}
-                        </Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+                            <Text
+                                style={[
+                                    styles.chatName,
+                                    unread > 0 && { fontWeight: '700' },
+                                    { flexShrink: 1 }
+                                ]}
+                                numberOfLines={1}
+                            >
+                                {item.name}
+                            </Text>
+                            {item.isPinned && (
+                                <MaterialIcons name="push-pin" size={14} color="#10b981" style={{ transform: [{ rotate: '45deg' }] }} />
+                            )}
+                            {item.isMuted && (
+                                <MaterialIcons name="notifications-off" size={14} color="#9ca3af" />
+                            )}
+                        </View>
                         {isGroup && (
                             <Text style={styles.groupTagText}>Nhóm</Text>
                         )}

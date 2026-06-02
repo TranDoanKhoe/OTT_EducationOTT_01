@@ -4,11 +4,12 @@ import eventEmitter from '../utils/eventEmitter';
 import axios from 'axios';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
+import { File, Paths } from 'expo-file-system';
 
 // Lấy backend URL trực tiếp - backend dùng /message không phải /api/message
 const BACKEND_URL =
     process.env.EXPO_PUBLIC_BACKEND_URL ||
-    'https://ott-education-balancer-1307761869.ap-southeast-1.elb.amazonaws.com';
+    'http://ott-education-balancer-1307761869.ap-southeast-1.elb.amazonaws.com';
 const API_BASE_URL = `${BACKEND_URL}/message`;
 const RAW_API_URL = process.env.EXPO_PUBLIC_API_URL || '';
 const API_BASE_URL_ALT = RAW_API_URL
@@ -19,7 +20,7 @@ const API_BASE_URLS = Array.from(
 );
 const RAW_WS_URL =
     process.env.EXPO_PUBLIC_WS_URL ||
-    'https://ott-education-balancer-1307761869.ap-southeast-1.elb.amazonaws.com/ws';
+    'http://ott-education-balancer-1307761869.ap-southeast-1.elb.amazonaws.com/ws';
 const SOCKJS_URL = RAW_WS_URL.replace(/^wss?:\/\//i, (match) =>
     match.toLowerCase().startsWith('wss') ? 'https://' : 'http://',
 );
@@ -187,44 +188,103 @@ export const uploadFile = async (
     groupId = null,
     replyToMessageId = null,
 ) => {
-    // Không cần kiểm tra WebSocket cho upload file
-    // if (!stompClient || !stompClient.connected) {
-    //     throw new Error('Không thể gửi file: WebSocket không hoạt động');
-    // }
     try {
+        console.log('--- uploadFile Android/iOS Debug ---');
+        console.log('Original files input:', JSON.stringify(files));
+
         const formData = new FormData();
-        files.forEach((file) => {
-            formData.append('file', file);
+        
+        // Android/iOS: Sao chép tệp tin content:// sang file:// để tránh lỗi 'Network Error' khi upload qua FormData
+        const processedFiles = [];
+        for (const file of files) {
+            let fileUri = file.uri;
+            console.log(`Checking file URI: ${fileUri}`);
+            if (fileUri && /^content:\/\//i.test(fileUri)) {
+                try {
+                    const rawName = file.name || `file_${Date.now()}.jpg`;
+                    const safeName = String(rawName).replace(/\s+/g, '_');
+                    const extensionMatch = safeName.match(/\.[A-Za-z0-9]+$/);
+                    const extension = extensionMatch ? extensionMatch[0] : '.jpg';
+                    
+                    const tempFile = new File(
+                        Paths.cache,
+                        `msg-upload-${Date.now()}-${Math.random().toString(36).substring(2, 7)}${extension}`,
+                    );
+                    
+                    new File(fileUri).copy(tempFile);
+                    fileUri = tempFile.uri;
+                    console.log(`Successfully copied content:// to local cache file: ${fileUri}`);
+                    
+                    processedFiles.push({
+                        ...file,
+                        uri: fileUri,
+                        name: safeName,
+                    });
+                } catch (copyErr) {
+                    console.error('Lỗi khi sao chép content URI, giữ nguyên file gốc:', copyErr);
+                    processedFiles.push(file);
+                }
+            } else {
+                processedFiles.push(file);
+            }
+        }
+
+        processedFiles.forEach((file) => {
+            const fileData = {
+                uri: file.uri,
+                name: file.name || `file_${Date.now()}.jpg`,
+                type: file.type || 'image/jpeg',
+            };
+            console.log('Appending file to FormData:', JSON.stringify(fileData));
+            formData.append('file', fileData);
         });
+
         if (receiverId) formData.append('receiverId', receiverId);
         if (groupId) formData.append('groupId', groupId);
         if (replyToMessageId)
             formData.append('replyToMessageId', replyToMessageId);
+        
+        formData.append('pinned', 'false');
+        formData.append('isPinned', 'false');
 
-        console.log('Uploading to server:', {
+        console.log('Uploading to server via FETCH:', {
             receiverId,
             groupId,
-            filesCount: files.length,
+            filesCount: processedFiles.length,
         });
 
         let lastError = null;
         for (const baseUrl of API_BASE_URLS) {
             const url = `${baseUrl}/upload-file`;
+            console.log(`Trying FETCH post upload to: ${url}`);
             try {
-                const response = await axios.post(url, formData, {
+                const response = await fetch(url, {
+                    method: 'POST',
                     headers: {
                         Authorization: `Bearer ${token}`,
-                        // Do NOT set Content-Type manually — axios sets it with the correct boundary
+                        Accept: 'application/json',
                     },
+                    body: formData,
                 });
-                console.log('Upload response:', response.data);
-                return response.data;
+
+                if (!response.ok) {
+                    throw new Error(`Server returned status ${response.status}`);
+                }
+
+                const responseText = await response.text();
+                console.log('FETCH upload raw response:', responseText);
+
+                let responseData;
+                try {
+                    responseData = JSON.parse(responseText);
+                } catch (parseErr) {
+                    responseData = responseText;
+                }
+                return responseData;
             } catch (error) {
                 lastError = error;
-                console.error('Error uploading file:', {
+                console.error('Error uploading file via FETCH:', {
                     url,
-                    status: error.response?.status,
-                    data: error.response?.data,
                     message: error.message,
                 });
             }
@@ -508,11 +568,17 @@ export function connectWebSocket(
                                 deletedByUsers:
                                     parsedMessage.deletedByUsers || [],
                                 isRead: parsedMessage.isRead || false,
-                                isPinned: parsedMessage.isPinned || false,
+                                // ❗ isPinned luôn bằng false cho tin nhắn mới:
+                                // Tin nhắn mới không thể đã được ghim ngay khi gửi.
+                                // isPinned chỉ được cập nhật qua channel /queue/pin và /queue/unpin.
+                                isPinned: false,
                                 fileName: parsedMessage.fileName || '',
                                 thumbnail: parsedMessage.thumbnail || '',
                                 publicId: parsedMessage.publicId || '',
                                 isEdited: parsedMessage.isEdited || false,
+                                tempKey: parsedMessage.tempKey || null,
+                                replyToMessageId: parsedMessage.replyToMessageId || null,
+                                senderName: parsedMessage.senderName || '',
                             };
                             const deletedMessageIds = JSON.parse(
                                 localStorage.getItem('deletedMessageIds') ||
@@ -570,14 +636,17 @@ export function connectWebSocket(
                                         deletedByUsers:
                                             parsedMessage.deletedByUsers || [],
                                         isRead: parsedMessage.isRead || false,
-                                        isPinned:
-                                            parsedMessage.isPinned || false,
+                                        // ❗ isPinned luôn false cho tin nhắn mới từ group channel
+                                        isPinned: false,
                                         fileName: parsedMessage.fileName || '',
                                         thumbnail:
                                             parsedMessage.thumbnail || '',
                                         publicId: parsedMessage.publicId || '',
                                         isEdited:
                                             parsedMessage.isEdited || false,
+                                        tempKey: parsedMessage.tempKey || null,
+                                        replyToMessageId: parsedMessage.replyToMessageId || null,
+                                        senderName: parsedMessage.senderName || '',
                                     };
                                     const deletedMessageIds = JSON.parse(
                                         localStorage.getItem(

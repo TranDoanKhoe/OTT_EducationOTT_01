@@ -2,7 +2,7 @@ import { getAccessTokenSync } from '../utils/authHeader';
 import axios from 'axios';
 
 const DEFAULT_BACKEND_URL =
-    'https://ott-education-balancer-1307761869.ap-southeast-1.elb.amazonaws.com';
+    'http://ott-education-balancer-1307761869.ap-southeast-1.elb.amazonaws.com';
 const sanitizeUrl = (value) =>
     (value || '')
         .toString()
@@ -15,7 +15,7 @@ const AUTH_BASE_URL = sanitizeUrl(
     /^https?:\/\//i.test(RAW_BACKEND_URL)
         ? RAW_BACKEND_URL
         : RAW_BACKEND_URL
-          ? `https://${RAW_BACKEND_URL}`
+          ? `http://${RAW_BACKEND_URL}`
           : DEFAULT_BACKEND_URL,
 ).replace(/\/api$/i, '');
 

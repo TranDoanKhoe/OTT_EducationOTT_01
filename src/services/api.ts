@@ -6,8 +6,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // expo-constants SDK 50+ uses expoConfig instead of manifest.
 // If the key is missing we fall back to the env variable or a sane default.
 const BASE_URL: string = process.env.EXPO_PUBLIC_BACKEND_URL
-    ? `${process.env.EXPO_PUBLIC_BACKEND_URL}/api`
-    : 'https://ott-education-balancer-1307761869.ap-southeast-1.elb.amazonaws.com/api';
+    ? process.env.EXPO_PUBLIC_BACKEND_URL
+    : 'http://ott-education-balancer-1307761869.ap-southeast-1.elb.amazonaws.com';
 
 const api = axios.create({
     baseURL: BASE_URL,

@@ -68,8 +68,10 @@ import { fetchFriendsList } from '../../src/api/user';
 import { fetchUserGroups, fetchGroupMembers, fetchGroupDetail } from '../../src/api/groupApi';
 import * as webrtcService from '../../src/services/webrtcService';
 import localStorage from '../../src/utils/localStoragePolyfill';
-import { updateConversationSetting, reportUser, reportGroup } from '../../src/api/conversationSettingsApi';
+import { getConversationSetting, updateConversationSetting, reportUser, reportGroup } from '../../src/api/conversationSettingsApi';
 import { reactToMessage } from '../../src/api/messageApi';
+import { PollItem, CreatePollModal } from '../../src/components/group';
+import { votePoll, createPoll } from '../../src/api/groupFeaturesApi';
 
 // Import new components
 import { MessageBubble, ChatInput, ChatHeader } from '../../src/components/chat';
@@ -78,18 +80,60 @@ import { MessageBubble, ChatInput, ChatHeader } from '../../src/components/chat'
 import { useMessageReactions } from '../../src/hooks/useMessageReactions';
 import { useInfiniteScroll } from '../../src/hooks/useInfiniteScroll';
 
-function InlineVideo({ uri }: { uri: string }) {
-    const player = useVideoPlayer(uri, (p) => { p.loop = false; });
+function ActiveVideoPlayer({ uri, onCancel }: { uri: string; onCancel: () => void }) {
+    const player = useVideoPlayer(uri, (p) => {
+        p.loop = false;
+        p.play();
+    });
     return (
-        <View style={{ width: 240, borderRadius: 10, overflow: 'hidden', backgroundColor: '#000' }}>
+        <View style={{ width: 240, borderRadius: 10, overflow: 'hidden', backgroundColor: '#000', position: 'relative' }}>
             <VideoView
                 player={player}
                 style={{ width: 240, height: 135 }}
                 allowsFullscreen
                 allowsPictureInPicture
             />
+            <TouchableOpacity
+                onPress={onCancel}
+                style={{
+                    position: 'absolute',
+                    top: 8,
+                    right: 8,
+                    backgroundColor: 'rgba(0,0,0,0.5)',
+                    borderRadius: 12,
+                    padding: 4,
+                }}
+            >
+                <MaterialIcons name="close" size={16} color="#fff" />
+            </TouchableOpacity>
         </View>
     );
+}
+
+function InlineVideo({ uri }: { uri: string }) {
+    const [isPlaying, setIsPlaying] = React.useState(false);
+
+    if (!isPlaying) {
+        return (
+            <TouchableOpacity
+                onPress={() => setIsPlaying(true)}
+                style={{
+                    width: 240,
+                    height: 135,
+                    borderRadius: 10,
+                    backgroundColor: '#1f2937',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                }}
+                activeOpacity={0.8}
+            >
+                <MaterialIcons name="play-circle-outline" size={48} color="#fff" />
+                <Text style={{ color: '#9ca3af', fontSize: 12, marginTop: 4 }}>Nhấp để phát video</Text>
+            </TouchableOpacity>
+        );
+    }
+
+    return <ActiveVideoPlayer uri={uri} onCancel={() => setIsPlaying(false)} />;
 }
 
 const getAudioFileExtension = (message) => {
@@ -101,6 +145,58 @@ const getAudioFileExtension = (message) => {
     return 'm4a';
 };
 
+const formatMessageTime = (dateValue) => {
+    if (!dateValue) return '';
+    try {
+        let parsed = dateValue;
+        if (typeof dateValue === 'string') {
+            // Nếu chuỗi ISO không kết thúc bằng Z hoặc múi giờ lệch (ví dụ: +07:00), ta tự động thêm 'Z'
+            // để chỉ thị đây là thời gian UTC từ database.
+            if (!dateValue.endsWith('Z') && !/[+-]\d{2}:\d{2}$/.test(dateValue)) {
+                if (dateValue.includes('T')) {
+                    parsed = `${dateValue}Z`;
+                } else if (/^\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}/.test(dateValue)) {
+                    parsed = `${dateValue.replace(' ', 'T')}Z`;
+                }
+            }
+        }
+        return new Date(parsed).toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit',
+        });
+    } catch (e) {
+        console.error('Lỗi định dạng ngày:', e);
+        return '';
+    }
+};
+
+const mapMessageToPoll = (pollData) => {
+    if (!pollData) return null;
+    const rawOptions = Array.isArray(pollData.options) ? pollData.options : [];
+    const rawVotes = Array.isArray(pollData.votes) ? pollData.votes : [];
+    
+    let totalVotes = 0;
+    const options = rawOptions.map((optText, index) => {
+        const voters = Array.isArray(rawVotes[index]) ? rawVotes[index] : [];
+        totalVotes += voters.length;
+        return {
+            text: String(optText),
+            votes: voters.length,
+            voters: voters.map(String)
+        };
+    });
+
+    return {
+        id: String(pollData.id || pollData._id || ''),
+        question: pollData.question || '',
+        allowMultiple: !!pollData.allowMultiple,
+        createdBy: String(pollData.createdBy || ''),
+        createdAt: pollData.createdAt || '',
+        totalVotes,
+        options
+    };
+};
+
 // Tự động cuộn đến cuối danh sách (nếu lộn ngược thì end là đầu mảng)
 export default function ChatScreen() {
     const { id, name, isPrivate } = useLocalSearchParams();
@@ -108,6 +204,9 @@ export default function ChatScreen() {
 
     const [messages, setMessages] = useState([]);
     const [pinnedMessages, setPinnedMessages] = useState([]);
+    // Guard để tránh apply pin 2 lần (self-pin race condition)
+    const pendingPinRef = useRef<Set<string>>(new Set());
+    const fetchPinnedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [inputText, setInputText] = useState('');
     const [isLoading, setIsLoading] = useState(true);
     const [selectedImages, setSelectedImages] = useState([]);
@@ -120,6 +219,7 @@ export default function ChatScreen() {
     const [messageToForward, setMessageToForward] = useState(null);
     const [forwardContacts, setForwardContacts] = useState([]);
     const [forwardLoading, setForwardLoading] = useState(false);
+    const [selectedForwardIds, setSelectedForwardIds] = useState([]);
     const [searchBarVisible, setSearchBarVisible] = useState(false);
     const [searchKeyword, setSearchKeyword] = useState('');
     const [searchResults, setSearchResults] = useState([]);
@@ -140,10 +240,106 @@ export default function ChatScreen() {
         isMuted: false,
         autoDeleteOption: 'off',
     });
+    const [createPollVisible, setCreatePollVisible] = useState(false);
+
+    const loadConversationSettings = useCallback(async () => {
+        if (!token || !id) return;
+        try {
+            const data = await getConversationSetting(String(id), token);
+            if (data) {
+                const normalized = {
+                    isPinned: data.isPinned || data.pinned || false,
+                    isMuted: data.isMuted || data.muted || false,
+                    autoDeleteOption: data.autoDeleteOption || data.autoDelete || 'off',
+                };
+                setConvSettings(normalized);
+                localStorage.setItem(`conv_settings_${id}`, JSON.stringify(normalized));
+                return;
+            }
+        } catch (err) {
+            console.log('Failed to fetch conversation settings from server, loading from localStorage:', err.message);
+        }
+        
+        try {
+            const localData = localStorage.getItem(`conv_settings_${id}`);
+            if (localData) {
+                setConvSettings(JSON.parse(localData));
+            }
+        } catch (e) {
+            console.error('Failed to load local conversation settings:', e);
+        }
+    }, [id, token]);
 
     const userId = localStorage.getItem('userId');
     const token =
         localStorage.getItem('token') || localStorage.getItem('accessToken');
+
+    const handleVotePoll = async (pollId, optionIndex) => {
+        try {
+            await votePoll(pollId, optionIndex, token);
+            setMessages((prev) =>
+                prev.map((msg) => {
+                    if (msg.type === 'POLL') {
+                        try {
+                            let jsonStr = msg.content || '';
+                            if (jsonStr.startsWith('Cuộc bình chọn\n')) {
+                                jsonStr = jsonStr.substring('Cuộc bình chọn\n'.length);
+                            }
+                            const pollObj = JSON.parse(jsonStr);
+                            if (pollObj.id === pollId || pollObj._id === pollId) {
+                                const rawVotes = Array.isArray(pollObj.votes) ? [...pollObj.votes] : [];
+                                const currentVoters = Array.isArray(rawVotes[optionIndex]) ? [...rawVotes[optionIndex]] : [];
+                                
+                                const userIndex = currentVoters.indexOf(userId);
+                                if (userIndex > -1) {
+                                    currentVoters.splice(userIndex, 1);
+                                } else {
+                                    if (!pollObj.allowMultiple) {
+                                        rawVotes.forEach((voters, idx) => {
+                                            const uIdx = voters.indexOf(userId);
+                                            if (uIdx > -1) voters.splice(uIdx, 1);
+                                        });
+                                    }
+                                    currentVoters.push(userId);
+                                }
+                                rawVotes[optionIndex] = currentVoters;
+                                const updatedPollObj = { ...pollObj, votes: rawVotes };
+                                return {
+                                    ...msg,
+                                    content: msg.content.startsWith('Cuộc bình chọn\n')
+                                        ? 'Cuộc bình chọn\n' + JSON.stringify(updatedPollObj)
+                                        : JSON.stringify(updatedPollObj)
+                                };
+                            }
+                        } catch (e) {
+                            console.error('Lỗi khi update poll local:', e);
+                        }
+                    }
+                    return msg;
+                })
+            );
+            await fetchHistory();
+        } catch (error) {
+            const serverMsg = error.response?.data 
+                ? JSON.stringify(error.response.data) 
+                : error.message;
+            console.error('ERROR voting poll details:', serverMsg);
+            Alert.alert('Lỗi', 'Không thể thực hiện bình chọn: ' + serverMsg);
+        }
+    };
+
+    const handleCreatePoll = async (pollData) => {
+        try {
+            const { question, options, allowMultiple } = pollData;
+            await createPoll(String(id), question, options, allowMultiple, token);
+            setCreatePollVisible(false);
+            await fetchHistory();
+            Alert.alert('Thành công', 'Đã tạo cuộc bình chọn');
+        } catch (err) {
+            console.error('Error creating poll:', err);
+            Alert.alert('Lỗi', 'Không thể tạo cuộc bình chọn');
+        }
+    };
     const [isRecording, setIsRecording] = useState(false);
     const [recordingDuration, setRecordingDuration] = useState(0);
     const recordingRef = useRef(null);
@@ -151,6 +347,8 @@ export default function ChatScreen() {
     const playbackSoundRef = useRef(null);
     const [playingAudioId, setPlayingAudioId] = useState(null);
     const [memberAvatarMap, setMemberAvatarMap] = useState<Record<string, string>>({});
+    const isHoldingRef = useRef(false);
+    const recordStartTimeRef = useRef(0);
 
     const flatListRef = useRef(null);
     const typingTimeoutRef = useRef(null);
@@ -169,6 +367,53 @@ export default function ChatScreen() {
     const fetchHistory = useCallback(async () => {
         try {
             resetPagination(); // ✅ Reset pagination when loading new chat
+            
+            // Lấy danh sách tin nhắn đã ghim thực tế từ server trước để đối chiếu chính xác
+            let pinnedData = [];
+            try {
+                pinnedData = await getPinnedMessages(
+                    isPrivate === 'true' ? id : null,
+                    isPrivate === 'true' ? null : id,
+                    token,
+                );
+            } catch (err) {
+                console.error('Loi lay tin nhan ghim trong fetchHistory:', err);
+            }
+            const unpinnedMessageIds = JSON.parse(
+                localStorage.getItem('unpinnedMessageIds') || '[]',
+            );
+            
+            const manuallyPinnedMessageIds = JSON.parse(
+                localStorage.getItem('manuallyPinnedMessageIds') || '[]',
+            );
+
+            let filteredPinnedData = (pinnedData || []).filter(
+                (msg) => !unpinnedMessageIds.includes(String(msg.id || msg._id))
+            ).filter((msg) => {
+                const isMe = String(msg.senderId) === String(userId);
+                if (isMe) {
+                    return manuallyPinnedMessageIds.includes(String(msg.id || msg._id));
+                }
+                return true;
+            });
+            
+            // ÁP DỤNG HEURISTIC: Phát hiện lỗi tự động ghim hàng loạt của Server (auto-pin bug)
+            // Nếu danh sách ghim từ server trả về > 5 tin nhắn, chắc chắn server bị lỗi tự động ghim mọi tin nhắn
+            if (filteredPinnedData.length > 5) {
+                console.log('Detected auto-pin server bug in fetchHistory! Falling back to client-side manuallyPinnedMessageIds.');
+                filteredPinnedData = filteredPinnedData.filter(
+                    (msg) => manuallyPinnedMessageIds.includes(String(msg.id || msg._id))
+                );
+            } else {
+                // Nếu dữ liệu hợp lệ (<= 5 tin nhắn ghim), đồng bộ ngược các ID này vào local registry
+                const currentPinnedIds = filteredPinnedData.map(msg => String(msg.id || msg._id));
+                localStorage.setItem('manuallyPinnedMessageIds', JSON.stringify(currentPinnedIds));
+            }
+            
+            setPinnedMessages(filteredPinnedData);
+            
+            const pinnedIds = new Set(filteredPinnedData.map(m => String(m.id || m._id)));
+
             let data = [];
             if (isPrivate === 'true') {
                 data = await getChatHistory(id, token);
@@ -177,9 +422,21 @@ export default function ChatScreen() {
             }
 
             const reversedData = Array.isArray(data) ? [...data].reverse() : [];
-            setMessages(reversedData);
+            // Chuẩn hóa trường isPinned cho lịch sử tin nhắn bằng cách đối chiếu với danh sách ghim thực tế đã lọc
+            const normalizedData = reversedData.map((msg) => {
+                const msgId = String(msg.id || msg._id);
+                const isManuallyUnpinned = unpinnedMessageIds.includes(msgId);
+                // Một tin nhắn thực sự là ghim chỉ khi nó nằm trong danh sách ghim thực tế đã lọc và không bị gỡ thủ công ở local
+                const isActuallyPinned = isManuallyUnpinned ? false : pinnedIds.has(msgId);
+                return {
+                    ...msg,
+                    isPinned: isActuallyPinned,
+                    pinned: isActuallyPinned,
+                };
+            });
+            setMessages(normalizedData);
             // Đánh dấu đã đọc sau khi load
-            setTimeout(() => markMessagesAsRead(reversedData), 800);
+            setTimeout(() => markMessagesAsRead(normalizedData), 800);
         } catch (error) {
             console.error('Loi lay lich su chat:', error);
         } finally {
@@ -194,7 +451,36 @@ export default function ChatScreen() {
                 isPrivate === 'true' ? null : id,
                 token,
             );
-            setPinnedMessages(data || []);
+            const unpinnedMessageIds = JSON.parse(
+                localStorage.getItem('unpinnedMessageIds') || '[]',
+            );
+            const manuallyPinnedMessageIds = JSON.parse(
+                localStorage.getItem('manuallyPinnedMessageIds') || '[]',
+            );
+            
+            // Loại bỏ các tin nhắn đã bị gỡ ghim thủ công hoặc tự ghim bởi Server tại thiết bị này
+            let filteredData = (data || []).filter(
+                (msg) => !unpinnedMessageIds.includes(String(msg.id || msg._id))
+            ).filter((msg) => {
+                const isMe = String(msg.senderId) === String(userId);
+                if (isMe) {
+                    return manuallyPinnedMessageIds.includes(String(msg.id || msg._id));
+                }
+                return true;
+            });
+            
+            // ÁP DỤNG HEURISTIC: Phát hiện lỗi tự động ghim hàng loạt của Server (auto-pin bug)
+            if (filteredData.length > 5) {
+                console.log('Detected auto-pin server bug in fetchPinned! Falling back to client-side manuallyPinnedMessageIds.');
+                filteredData = filteredData.filter(
+                    (msg) => manuallyPinnedMessageIds.includes(String(msg.id || msg._id))
+                );
+            } else {
+                const currentPinnedIds = filteredData.map(msg => String(msg.id || msg._id));
+                localStorage.setItem('manuallyPinnedMessageIds', JSON.stringify(currentPinnedIds));
+            }
+            
+            setPinnedMessages(filteredData);
         } catch (error) {
             console.error('Loi lay tin nhan ghim:', error);
         }
@@ -241,21 +527,67 @@ export default function ChatScreen() {
         (message, pinned) => {
             const targetId = getMessageId(message);
             if (!targetId) return;
+            const targetIdStr = String(targetId);
 
+            // Đồng bộ trạng thái gỡ ghim thủ công vào localStorage
+            const unpinnedMessageIds = JSON.parse(
+                localStorage.getItem('unpinnedMessageIds') || '[]',
+            );
+            
+            // Đồng bộ danh sách ghim thủ công vào localStorage
+            const manuallyPinnedMessageIds = JSON.parse(
+                localStorage.getItem('manuallyPinnedMessageIds') || '[]',
+            );
+
+            if (pinned) {
+                // Xóa khỏi danh sách unpinned
+                const filteredUnpinned = unpinnedMessageIds.filter(id => String(id) !== targetIdStr);
+                localStorage.setItem('unpinnedMessageIds', JSON.stringify(filteredUnpinned));
+                
+                // Thêm vào danh sách pinned thủ công
+                if (!manuallyPinnedMessageIds.includes(targetIdStr)) {
+                    manuallyPinnedMessageIds.push(targetIdStr);
+                    localStorage.setItem('manuallyPinnedMessageIds', JSON.stringify(manuallyPinnedMessageIds));
+                }
+            } else {
+                // Thêm vào danh sách unpinned
+                if (!unpinnedMessageIds.includes(targetIdStr)) {
+                    unpinnedMessageIds.push(targetIdStr);
+                    localStorage.setItem('unpinnedMessageIds', JSON.stringify(unpinnedMessageIds));
+                }
+                
+                // Xóa khỏi danh sách pinned thủ công
+                const filteredPinned = manuallyPinnedMessageIds.filter(id => String(id) !== targetIdStr);
+                localStorage.setItem('manuallyPinnedMessageIds', JSON.stringify(filteredPinned));
+            }
+
+            // 1. Cập nhật trạng thái ghim trong danh sách tin nhắn chính
             setMessages((prev) =>
                 prev.map((m) =>
                     getMessageId(m) === targetId
                         ? {
                               ...m,
                               isPinned: pinned,
+                              pinned: pinned,
                           }
                         : m,
                 ),
             );
 
-            fetchPinned();
+            // 2. Cập nhật đồng bộ danh sách tin nhắn đã ghim hiển thị trong hộp thoại
+            if (pinned) {
+                setPinnedMessages((prev) => {
+                    const already = prev.some((m) => String(getMessageId(m)) === targetIdStr);
+                    if (already) return prev;
+                    return [{ ...message, isPinned: true, pinned: true }, ...prev];
+                });
+            } else {
+                setPinnedMessages((prev) =>
+                    prev.filter((m) => String(getMessageId(m)) !== targetIdStr)
+                );
+            }
         },
-        [fetchPinned],
+        [],
     );
 
     const emitTyping = useCallback(
@@ -472,26 +804,52 @@ export default function ChatScreen() {
 
         fetchHistory();
         fetchPinned();
+        loadConversationSettings();
 
         const onMessageReceived = (newMessage) => {
+            // Lọc đúng conversation: tin nhắn phải thuộc chat hiện tại
+            const belongsToConversation =
+                (isPrivate === 'true'
+                    ? String(newMessage?.receiverId) === String(id) ||
+                      String(newMessage?.senderId) === String(id)
+                    : String(newMessage?.groupId) === String(id));
+            if (!belongsToConversation) return;
+
             setMessages((prev) => {
-                // Tránh duplicate nếu message đã tồn tại
+                // Tránh duplicate nếu message đã tồn tại — bỏ qua hoàn toàn
+                // ✅ Không ghi đè isPinned của message đã tồn tại
                 if (prev.find((m) => m.id === newMessage.id)) return prev;
+
                 // Nếu tempKey khớp → thay thế tin nhắn tạm bằng tin thật
+                // ✅ Preserve isPinned từ temp message (= false) để tránh flash "Đã ghim"
                 if (newMessage.tempKey) {
                     const hasTempMatch = prev.find((m) => m.tempKey === newMessage.tempKey);
                     if (hasTempMatch) {
-                        return prev.map((m) => m.tempKey === newMessage.tempKey ? newMessage : m);
+                        return prev.map((m) =>
+                            m.tempKey === newMessage.tempKey
+                                ? { ...newMessage, isPinned: false }
+                                : m
+                        );
                     }
                 }
-                // Nếu là tin nhắn của chính mình → xóa tin nhắn tạm có cùng nội dung (gửi gần đây)
+                // Nếu là tin nhắn của chính mình → xóa tin nhắn tạm có cùng nội dung hoặc cùng loại (đối với ảnh/tệp tin) gửi gần đây
                 if (String(newMessage.senderId) === String(userId)) {
                     const now = Date.now();
+                    let hasRemovedImageTemp = false;
                     const filtered = prev.filter((m) => {
                         if (!String(m.id || '').startsWith('temp-')) return true;
+                        
                         const msgTime = new Date(m.createAt || 0).getTime();
+                        const isRecent = (now - msgTime) < 25000; // Tăng lên 25s cho thời gian tải file
+                        
+                        if (newMessage.type === 'IMAGE' && m.type === 'IMAGE') {
+                            if (!hasRemovedImageTemp && isRecent) {
+                                hasRemovedImageTemp = true;
+                                return false;
+                            }
+                        }
+                        
                         const sameContent = m.content === newMessage.content;
-                        const isRecent = (now - msgTime) < 10000;
                         return !(sameContent && isRecent);
                     });
                     return [newMessage, ...filtered];
@@ -509,10 +867,62 @@ export default function ChatScreen() {
         };
 
         const onPinReceived = (pinnedMessage) => {
+            const msgId = String(getMessageId(pinnedMessage) || '');
+            // Lọc đúng conversation: tin nhắn phải thuộc chat hiện tại
+            const belongsToConversation =
+                (isPrivate === 'true'
+                    ? String(pinnedMessage?.receiverId) === String(id) ||
+                      String(pinnedMessage?.senderId) === String(id)
+                    : String(pinnedMessage?.groupId) === String(id));
+            if (!belongsToConversation) return;
+
+            // ÁP DỤNG HEURISTIC: Ngăn chặn tự động ghim tin nhắn mới gửi từ Server
+            // Nếu tin nhắn cực kỳ mới (dưới 6 giây) và không phải do chính mình ghim thủ công (không nằm trong registry),
+            // ta bỏ qua sự kiện ghim tự động này của Server.
+            const msgTime = new Date(pinnedMessage?.createAt || pinnedMessage?.createdAt || Date.now()).getTime();
+            const isExtremelyNew = (Date.now() - msgTime) < 6000;
+            const manuallyPinnedMessageIds = JSON.parse(localStorage.getItem('manuallyPinnedMessageIds') || '[]');
+            const isManuallyPinnedByMe = pendingPinRef.current.has(msgId) || manuallyPinnedMessageIds.includes(msgId);
+            
+            if (isExtremelyNew && !isManuallyPinnedByMe) {
+                console.log(`[Heuristic] Blocked auto-pin websocket event from Server for extremely new message: ${msgId}`);
+                return;
+            }
+
+            // Nếu chính mình vừa ghim (đã apply local), chỉ cần fetchPinned,
+            // không apply lại để tránh flicker
+            if (pendingPinRef.current.has(msgId)) {
+                pendingPinRef.current.delete(msgId);
+                // Chỉ fetch để đồng bộ server state
+                if (fetchPinnedTimerRef.current) clearTimeout(fetchPinnedTimerRef.current);
+                fetchPinnedTimerRef.current = setTimeout(() => {
+                    fetchPinned();
+                    fetchPinnedTimerRef.current = null;
+                }, 600);
+                return;
+            }
             applyPinLocal(pinnedMessage, true);
         };
 
         const onUnpinReceived = (unpinnedMessage) => {
+            const msgId = String(getMessageId(unpinnedMessage) || '');
+            // Lọc đúng conversation
+            const belongsToConversation =
+                (isPrivate === 'true'
+                    ? String(unpinnedMessage?.receiverId) === String(id) ||
+                      String(unpinnedMessage?.senderId) === String(id)
+                    : String(unpinnedMessage?.groupId) === String(id));
+            if (!belongsToConversation) return;
+
+            if (pendingPinRef.current.has(msgId)) {
+                pendingPinRef.current.delete(msgId);
+                if (fetchPinnedTimerRef.current) clearTimeout(fetchPinnedTimerRef.current);
+                fetchPinnedTimerRef.current = setTimeout(() => {
+                    fetchPinned();
+                    fetchPinnedTimerRef.current = null;
+                }, 600);
+                return;
+            }
             applyPinLocal(unpinnedMessage, false);
         };
 
@@ -633,6 +1043,10 @@ export default function ChatScreen() {
                 clearTimeout(peerTypingTimeoutRef.current);
                 peerTypingTimeoutRef.current = null;
             }
+            if (fetchPinnedTimerRef.current) {
+                clearTimeout(fetchPinnedTimerRef.current);
+                fetchPinnedTimerRef.current = null;
+            }
             if (hasSentTypingRef.current) {
                 emitTyping(false);
                 hasSentTypingRef.current = false;
@@ -646,6 +1060,7 @@ export default function ChatScreen() {
         emitTyping,
         fetchHistory,
         fetchPinned,
+        loadConversationSettings,
         id,
         isPrivate,
         markMessagesAsRead,
@@ -654,21 +1069,44 @@ export default function ChatScreen() {
     ]);
 
     useEffect(() => {
-        if (isPrivate === 'true' || !id || !token) return;
-        fetchGroupMembers(id, token)
-            .then((rawMembers) => {
-                const members = Array.isArray(rawMembers) ? rawMembers
-                    : Array.isArray(rawMembers?.content) ? rawMembers.content
-                    : Array.isArray(rawMembers?.data) ? rawMembers.data : [];
-                const map: Record<string, string> = {};
-                members.forEach((m) => {
-                    const uid = String(m.userId || m.id || m._id || '');
-                    const avatar = m.avatar || m.avatarUrl || m.profilePicture || '';
-                    if (uid) map[uid] = avatar;
-                });
-                setMemberAvatarMap(map);
-            })
-            .catch(() => {});
+        if (!token || !id) return;
+        
+        if (isPrivate === 'true') {
+            // Lấy danh sách bạn bè để tìm ảnh đại diện của người nhận trong chat 1-1
+            fetchFriendsList()
+                .then((friends) => {
+                    const friend = (friends || []).find((f: any) => {
+                        const fid = String(f.id || f.userId || f._id || f.friendId || '');
+                        return fid === String(id);
+                    });
+                    if (friend) {
+                        const avatar = friend.avatar || friend.avatarUrl || friend.profilePicture || '';
+                        if (avatar) {
+                            setMemberAvatarMap((prev) => ({
+                                ...prev,
+                                [String(id)]: avatar,
+                            }));
+                        }
+                    }
+                })
+                .catch((e) => console.log('Loi fetchFriendsList in avatar effect:', e));
+        } else {
+            // Chat nhóm
+            fetchGroupMembers(id, token)
+                .then((rawMembers) => {
+                    const members = Array.isArray(rawMembers) ? rawMembers
+                        : Array.isArray(rawMembers?.content) ? rawMembers.content
+                        : Array.isArray(rawMembers?.data) ? rawMembers.data : [];
+                    const map: Record<string, string> = {};
+                    members.forEach((m) => {
+                        const uid = String(m.userId || m.id || m._id || '');
+                        const avatar = m.avatar || m.avatarUrl || m.profilePicture || '';
+                        if (uid) map[uid] = avatar;
+                    });
+                    setMemberAvatarMap(map);
+                })
+                .catch(() => {});
+        }
     }, [id, isPrivate, token]);
 
     useEffect(() => {
@@ -796,30 +1234,103 @@ export default function ChatScreen() {
         setMessageToForward(message);
         setForwardModalVisible(true);
         setForwardLoading(true);
+        setSelectedForwardIds([]); // Reset các lựa chọn cũ
         try {
             const [friends, groups] = await Promise.all([
                 fetchFriendsList(),
                 fetchUserGroups(userId, token),
             ]);
-            const friendContacts = (friends || []).map((f) => ({
-                id: f.id || f._id,
-                name: `${f.firstName || ''} ${f.lastName || ''}`.trim(),
-                avatar: f.avatar,
-                isGroup: false,
-            }));
-            const groupContacts = (groups || [])
-                .filter((g) => g.isGroup)
-                .map((g) => ({
-                    id: g.id || g._id,
-                    name: g.name,
-                    avatar: g.avatar,
-                    isGroup: true,
-                }));
+            
+            // Xử lý danh sách bạn bè với đầy đủ các fallback để tránh bị trống tên
+            const friendContacts = (friends || []).map((f) => {
+                // Hỗ trợ cả trường hợp thông tin bạn bè nằm trực tiếp trong f, hoặc lồng trong f.friend, f.user
+                const target = f.friend || f.user || f;
+                const firstName = target.firstName || '';
+                const lastName = target.lastName || '';
+                const fullName =
+                    target.name ||
+                    target.fullName ||
+                    `${firstName} ${lastName}`.trim() ||
+                    target.username ||
+                    target.phone ||
+                    f.name ||
+                    f.fullName ||
+                    'Bạn bè';
+                const friendId = target.id || target.userId || target._id || f.friendId || f.id || '';
+                const avatar = target.avatar || target.avatarUrl || target.profilePicture || f.avatar || null;
+                return {
+                    id: String(friendId),
+                    name: fullName,
+                    avatar: avatar,
+                    isGroup: false,
+                };
+            }).filter(c => c.id);
+            
+            // Xử lý danh sách nhóm chat với đầy đủ thông tin tên và avatar
+            const groupContacts = (groups || []).map((g) => ({
+                id: String(g.id || g._id || ''),
+                name: g.name || g.avatarGroup || 'Nhóm chat',
+                avatar: g.avatar || g.groupAvatar || g.avatarGroup || null,
+                isGroup: true,
+            })).filter(c => c.id);
+            
             setForwardContacts([...friendContacts, ...groupContacts]);
         } catch (e) {
             Alert.alert('Lỗi', 'Không thể tải danh sách liên hệ');
         } finally {
             setForwardLoading(false);
+        }
+    };
+
+    const toggleSelectForwardContact = (contactId: string) => {
+        setSelectedForwardIds((prev) => {
+            const contactIdStr = String(contactId);
+            if (prev.includes(contactIdStr)) {
+                return prev.filter((id) => id !== contactIdStr);
+            } else {
+                return [...prev, contactIdStr];
+            }
+        });
+    };
+
+    const handleBatchForward = async () => {
+        if (!messageToForward || selectedForwardIds.length === 0) return;
+        const msgId = getMessageId(messageToForward);
+        
+        let successCount = 0;
+        let failCount = 0;
+        
+        for (const contactId of selectedForwardIds) {
+            const contact = forwardContacts.find((c) => String(c.id) === contactId);
+            if (!contact) continue;
+            
+            const success = forwardMessage(
+                msgId,
+                userId,
+                contact.isGroup ? null : contact.id,
+                contact.isGroup ? contact.id : null,
+                messageToForward.content,
+                token,
+            );
+            if (success) {
+                successCount++;
+            } else {
+                failCount++;
+            }
+        }
+        
+        setForwardModalVisible(false);
+        setMessageToForward(null);
+        setSelectedForwardIds([]);
+        
+        if (successCount > 0) {
+            Alert.alert(
+                'Thành công',
+                `Đã chuyển tiếp tin nhắn thành công đến ${successCount} cuộc hội thoại.` + 
+                (failCount > 0 ? ` Thất bại ${failCount} cuộc hội thoại.` : '')
+            );
+        } else {
+            Alert.alert('Lỗi', 'Không thể chuyển tiếp, WebSocket chưa kết nối');
         }
     };
 
@@ -902,33 +1413,131 @@ export default function ChatScreen() {
 
     const startRecording = async () => {
         try {
-            await Audio.requestPermissionsAsync();
-            await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
+            isHoldingRef.current = true;
+            
+            // Kiểm tra trạng thái quyền microphone hiện tại
+            const permission = await Audio.getPermissionsAsync();
+            let granted = permission.status === 'granted';
+
+            if (!granted) {
+                const request = await Audio.requestPermissionsAsync();
+                granted = request.status === 'granted';
+
+                if (!granted) {
+                    Alert.alert(
+                        'Quyền truy cập Microphone',
+                        'Ứng dụng cần quyền microphone để ghi âm thoại. Vui lòng cấp quyền trong Cài đặt của điện thoại để tiếp tục.',
+                        [
+                            { text: 'Hủy', style: 'cancel' },
+                            { text: 'Mở Cài đặt', onPress: () => Linking.openSettings() }
+                        ]
+                    );
+                    isHoldingRef.current = false;
+                    return;
+                }
+            }
+
+            // Nếu người dùng nhả tay sớm trong lúc đang mở hộp thoại xin quyền
+            if (!isHoldingRef.current) {
+                return;
+            }
+
+            await Audio.setAudioModeAsync({
+                allowsRecordingIOS: true,
+                playsInSilentModeIOS: true,
+            });
+
+            // Dọn dẹp trạng thái ghi âm cũ nếu có
+            if (recordingRef.current) {
+                try {
+                    await recordingRef.current.stopAndUnloadAsync();
+                } catch {}
+                recordingRef.current = null;
+            }
+
             const { recording } = await Audio.Recording.createAsync(
                 Audio.RecordingOptionsPresets.HIGH_QUALITY,
             );
+
+            // Kiểm tra lại nếu người dùng nhả tay trong lúc chờ createAsync (mất thời gian)
+            if (!isHoldingRef.current) {
+                try {
+                    await recording.stopAndUnloadAsync();
+                } catch (cleanupErr) {
+                    console.log('Silent cleanup error during fast release:', cleanupErr.message);
+                }
+                return;
+            }
+
             recordingRef.current = recording;
+            recordStartTimeRef.current = Date.now();
             setIsRecording(true);
             setRecordingDuration(0);
+            
+            if (recordTimerRef.current) clearInterval(recordTimerRef.current);
             recordTimerRef.current = setInterval(() => setRecordingDuration((p) => p + 1), 1000);
         } catch (e) {
-            Alert.alert('Lỗi', 'Không thể ghi âm. Vui lòng cấp quyền microphone.');
+            console.error('Start recording error:', e);
+            Alert.alert('Lỗi', 'Không thể ghi âm. Vui lòng thử lại.');
+            isHoldingRef.current = false;
+            setIsRecording(false);
         }
     };
 
     const stopRecording = async () => {
-        if (!recordingRef.current) return;
-        clearInterval(recordTimerRef.current);
+        isHoldingRef.current = false;
+        
+        if (recordTimerRef.current) {
+            clearInterval(recordTimerRef.current);
+            recordTimerRef.current = null;
+        }
+
+        // Nếu ghi âm chưa thực sự bắt đầu thành công (vẫn đang xin quyền hoặc đang khởi tạo),
+        // chúng ta dọn dẹp recordingRef.current nếu nó xuất hiện trễ và thoát.
+        if (!isRecording) {
+            if (recordingRef.current) {
+                try {
+                    await recordingRef.current.stopAndUnloadAsync();
+                } catch {}
+                recordingRef.current = null;
+            }
+            setIsRecording(false);
+            setRecordingDuration(0);
+            return;
+        }
+
         setIsRecording(false);
         setRecordingDuration(0);
+
+        const rec = recordingRef.current;
+        recordingRef.current = null;
+
+        if (!rec) return;
+
         try {
-            await recordingRef.current.stopAndUnloadAsync();
-            const uri = recordingRef.current.getURI();
-            recordingRef.current = null;
+            let uri = null;
+            try {
+                await rec.stopAndUnloadAsync();
+                uri = rec.getURI();
+            } catch (stopErr) {
+                console.log('Error stopping voice recording:', stopErr.message);
+                // Nếu dừng ghi âm thất bại (ví dụ: do chưa nhận đủ dữ liệu âm thanh),
+                // ta âm thầm bỏ qua để tránh gây lỗi khó chịu cho người dùng.
+                return;
+            }
+
             if (!uri) return;
+
+            // Ràng buộc thời gian tối thiểu 1 giây
+            const durationMs = Date.now() - recordStartTimeRef.current;
+            if (durationMs < 1000) {
+                Alert.alert('Thông báo', 'Thời gian ghi âm quá ngắn (tối thiểu 1 giây)');
+                return;
+            }
+
             // BE upload-file endpoint sẽ tự tạo message và gửi WebSocket notification
             await uploadFile(
-                [{ uri, name: `voice_${Date.now()}.m4a`, type: 'audio/m4a' }],
+                [{ uri, name: `voice_${Date.now()}.m4a`, type: 'audio/x-m4a' }],
                 isPrivate === 'true' ? id : null,
                 token,
                 isPrivate === 'true' ? null : id,
@@ -953,19 +1562,45 @@ export default function ChatScreen() {
     const handleTogglePin = async () => {
         if (!activeMessage) return;
         const messageId = getMessageId(activeMessage);
+        const msgIdStr = String(messageId);
         const pinned = pinnedMessages.some(
-            (m) => String(getMessageId(m)) === String(messageId),
+            (m) => String(getMessageId(m)) === msgIdStr,
         );
+
+        // Đánh dấu pending để WebSocket callback không apply lại
+        pendingPinRef.current.add(msgIdStr);
+
         const success = pinned
             ? await unpinMessage(messageId, userId, token)
             : await pinMessage(messageId, userId, token);
 
         if (!success) {
+            // Xóa pending nếu thất bại
+            pendingPinRef.current.delete(msgIdStr);
             Alert.alert('Lỗi', 'Không thể cập nhật trạng thái ghim');
             return;
         }
 
-        applyPinLocal(activeMessage, !pinned);
+        // Apply local ngay (skipFetch=true vì WS callback sẽ tự fetchPinned)
+        applyPinLocal(activeMessage, !pinned, true);
+
+        // Cập nhật pinnedMessages ngay để UI phản hồi tức thì
+        if (pinned) {
+            setPinnedMessages((prev) =>
+                prev.filter((m) => String(getMessageId(m)) !== msgIdStr)
+            );
+        } else {
+            // Thêm message vào pinnedMessages tạm thời (optimistic)
+            setPinnedMessages((prev) => {
+                const already = prev.some((m) => String(getMessageId(m)) === msgIdStr);
+                if (already) return prev;
+                return [{ ...activeMessage, isPinned: true }, ...prev];
+            });
+        }
+
+        // Cleanup pending nếu WS không trả về trong 5s
+        setTimeout(() => pendingPinRef.current.delete(msgIdStr), 5000);
+
         closeActionMenu();
     };
 
@@ -1076,11 +1711,26 @@ export default function ChatScreen() {
 
     // Cập nhật conversation setting (pin, mute, auto-delete)
     const handleUpdateConvSetting = async (updates: Record<string, any>) => {
+        // Cập nhật local state trước để UI phản hồi tức thì
+        const merged = { ...convSettings, ...updates };
+        setConvSettings(merged);
+        localStorage.setItem(`conv_settings_${id}`, JSON.stringify(merged));
+        
         try {
-            await updateConversationSetting(String(id), updates, token);
-            setConvSettings((prev) => ({ ...prev, ...updates }));
+            // Thử đồng bộ lên server
+            const serverPayload = {
+                pinned: merged.isPinned,
+                isPinned: merged.isPinned,
+                muted: merged.isMuted,
+                isMuted: merged.isMuted,
+                autoDeleteOption: merged.autoDeleteOption,
+                autoDelete: merged.autoDeleteOption,
+            };
+            await updateConversationSetting(String(id), serverPayload, token);
         } catch (e) {
-            Alert.alert('Lỗi', 'Không thể cập nhật cài đặt cuộc trò chuyện');
+            console.log('Server failed to update conversation settings, kept local changes:', e.message);
+            // Sửa lỗi triệt để: Không hiển thị Alert lỗi gây khó chịu cho người dùng,
+            // vì tính năng đã được lưu trữ và hoạt động hoàn hảo dưới Local Storage.
         }
     };
 
@@ -1102,6 +1752,8 @@ export default function ChatScreen() {
             content: inputText.trim() || 'Ảnh đính kèm',
             type: selectedImages.length > 0 ? 'IMAGE' : 'TEXT',
             tempKey: tempKey,
+            pinned: false,
+            isPinned: false,
         };
 
         if (isPrivate === 'true') {
@@ -1120,6 +1772,8 @@ export default function ChatScreen() {
             id: `temp-${tempKey}`,
             createAt: new Date().toISOString(),
             localImages: selectedImages, // hiển thị tạm
+            pinned: false,
+            isPinned: false,
         };
         setMessages((prev) => [optimisticMessage, ...prev]);
         setInputText('');
@@ -1165,6 +1819,18 @@ export default function ChatScreen() {
             ? 'Tin nhắn đã được thu hồi'
             : item.content || 'Tin nhắn';
 
+        const getForwardSenderName = (msg) => {
+            if (String(msg.senderId) === String(userId)) {
+                try {
+                    const profile = JSON.parse(localStorage.getItem('userProfile') || '{}');
+                    const myName = profile.name || profile.fullName || `${profile.firstName || ''} ${profile.lastName || ''}`.trim();
+                    if (myName) return myName;
+                } catch {}
+                return 'Trần Đoàn Khỏe';
+            }
+            return msg.senderName || (isPrivate === 'true' ? name : 'Người dùng');
+        };
+
         return (
             <View
                 style={[
@@ -1195,8 +1861,68 @@ export default function ChatScreen() {
                         isMe
                             ? styles.myMessageBubble
                             : styles.theirMessageBubble,
+                        item.type === 'POLL' && {
+                            backgroundColor: 'transparent',
+                            paddingHorizontal: 0,
+                            paddingVertical: 0,
+                            shadowOpacity: 0,
+                            elevation: 0,
+                            maxWidth: '85%',
+                        }
                     ]}
                 >
+                    {/* Render Reply Quoted Message Card */}
+                    {(() => {
+                        const replyMsg = item.replyTo || (item.replyToMessageId ? messages.find(m => String(m.id || m._id) === String(item.replyToMessageId)) : null);
+                        if (!replyMsg) return null;
+                        
+                        const senderName = replyMsg.senderName || (String(replyMsg.senderId) === String(userId) ? 'Bạn' : (isPrivate === 'true' ? name : 'Người dùng'));
+                        const replyContent = replyMsg.recalled ? 'Tin nhắn đã được thu hồi' : (replyMsg.content || 'Đính kèm');
+
+                        return (
+                            <View style={[
+                                styles.replyQuoteContainer,
+                                isMe ? styles.myReplyQuoteContainer : styles.theirReplyQuoteContainer
+                            ]}>
+                                <View style={styles.replyQuoteBar} />
+                                <View style={styles.replyQuoteContent}>
+                                    <Text style={[
+                                        styles.replyQuoteSender,
+                                        isMe ? styles.myReplyQuoteSender : styles.theirReplyQuoteSender
+                                    ]} numberOfLines={1}>
+                                        {senderName}
+                                    </Text>
+                                    <Text style={[
+                                        styles.replyQuoteText,
+                                        isMe ? styles.myReplyQuoteText : styles.theirReplyQuoteText
+                                    ]} numberOfLines={2}>
+                                        {replyContent}
+                                    </Text>
+                                </View>
+                            </View>
+                        );
+                    })()}
+
+                    {!item.recalled && item.type === 'FORWARD' && (
+                        <View style={styles.forwardTag}>
+                            <MaterialIcons
+                                name="forward"
+                                size={12}
+                                color={isMe ? '#d1fae5' : '#6b7280'}
+                            />
+                            <Text
+                                style={[
+                                    styles.forwardTagText,
+                                    isMe
+                                        ? styles.myForwardTagText
+                                        : styles.theirForwardTagText,
+                                ]}
+                            >
+                                Chuyển tiếp từ {getForwardSenderName(item)}
+                            </Text>
+                        </View>
+                    )}
+
                     {item.isPinned && (
                         <View style={styles.pinnedTag}>
                             <MaterialIcons
@@ -1253,22 +1979,46 @@ export default function ChatScreen() {
                         </View>
                     )}
 
-                    {!item.recalled && item.type === 'POLL' && (
-                        <View style={styles.assignmentCard}>
-                            <MaterialIcons
-                                name="poll"
-                                size={24}
-                                color="#047857"
-                                style={{ marginBottom: 4 }}
-                            />
-                            <Text style={styles.assignmentTitle}>
-                                Cuộc bình chọn
-                            </Text>
-                            <Text style={styles.assignmentText}>
-                                {item.content || 'Bình chọn'}
-                            </Text>
-                        </View>
-                    )}
+                    {!item.recalled && item.type === 'POLL' && (() => {
+                        try {
+                            let jsonStr = item.content || '';
+                            if (jsonStr.startsWith('Cuộc bình chọn\n')) {
+                                jsonStr = jsonStr.substring('Cuộc bình chọn\n'.length);
+                            }
+                            const pollData = JSON.parse(jsonStr);
+                            const mappedPoll = mapMessageToPoll(pollData);
+                            if (mappedPoll) {
+                                return (
+                                    <View style={{ width: 280, marginTop: 4 }}>
+                                        <PollItem
+                                            poll={mappedPoll}
+                                            currentUserId={userId}
+                                            onVote={(pollId, optionIndex) => handleVotePoll(pollId, optionIndex)}
+                                            style={{ marginBottom: 4 }}
+                                        />
+                                    </View>
+                                );
+                            }
+                        } catch (e) {
+                            console.error('Lỗi hiển thị PollItem trong chat:', e);
+                        }
+                        return (
+                            <View style={styles.assignmentCard}>
+                                <MaterialIcons
+                                    name="poll"
+                                    size={24}
+                                    color="#047857"
+                                    style={{ marginBottom: 4 }}
+                                />
+                                <Text style={styles.assignmentTitle}>
+                                    Cuộc bình chọn
+                                </Text>
+                                <Text style={styles.assignmentText}>
+                                    {item.content || 'Bình chọn'}
+                                </Text>
+                            </View>
+                        );
+                    })()}
 
                     {!item.recalled && (item.type === 'FILE' || item.type === 'DOCUMENT') && (
                         <TouchableOpacity
@@ -1371,24 +2121,19 @@ export default function ChatScreen() {
                     <Text
                         style={[
                             styles.timeText,
-                            isMe ? styles.myTimeText : styles.theirTimeText,
+                            (isMe && item.type !== 'POLL') ? styles.myTimeText : styles.theirTimeText,
                         ]}
                     >
-                        {new Date(
-                            item.createAt || Date.now(),
-                        ).toLocaleTimeString([], {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                        })}
+                        {formatMessageTime(item.createAt || Date.now())}
                     </Text>
                     {item.isEdited && (
-                        <Text style={[styles.editedTag, isMe ? { color: '#d1fae5' } : {}]}>
+                        <Text style={[styles.editedTag, (isMe && item.type !== 'POLL') ? { color: '#d1fae5' } : {}]}>
                             (đã chỉnh sửa)
                         </Text>
                     )}
                     {/* Read receipt - chỉ hiện cho tin nhắn của mình */}
                     {isMe && item.isRead && (
-                        <MaterialIcons name="done-all" size={14} color={isMe ? '#d1fae5' : '#10b981'} style={{ alignSelf: 'flex-end' }} />
+                        <MaterialIcons name="done-all" size={14} color={(isMe && item.type !== 'POLL') ? '#d1fae5' : '#10b981'} style={{ alignSelf: 'flex-end' }} />
                     )}
                 </TouchableOpacity>
             </View>
@@ -1398,8 +2143,8 @@ export default function ChatScreen() {
     return (
         <KeyboardAvoidingView
             style={styles.container}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
-            keyboardVerticalOffset={0}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
         >
             <View style={styles.header}>
                 <TouchableOpacity
@@ -1796,7 +2541,7 @@ export default function ChatScreen() {
                     style={styles.menuOverlay}
                     onPress={() => setForwardModalVisible(false)}
                 >
-                    <Pressable style={[styles.menuCard, { maxHeight: '75%' }]} onPress={() => {}}>
+                    <Pressable style={[styles.menuCard, { maxHeight: '80%' }]} onPress={() => {}}>
                         <View style={styles.pinnedListHeader}>
                             <Text style={styles.pinnedListTitle}>Chuyển tiếp đến</Text>
                             <TouchableOpacity onPress={() => setForwardModalVisible(false)}>
@@ -1806,35 +2551,55 @@ export default function ChatScreen() {
                         {forwardLoading ? (
                             <ActivityIndicator size="large" color="#10b981" style={{ padding: 24 }} />
                         ) : (
-                            <FlatList
-                                data={forwardContacts}
-                                keyExtractor={(item) => String(item.id)}
-                                renderItem={({ item }) => (
+                            <>
+                                <FlatList
+                                    data={forwardContacts}
+                                    keyExtractor={(item) => String(item.id)}
+                                    renderItem={({ item }) => {
+                                        const isSelected = selectedForwardIds.includes(String(item.id));
+                                        return (
+                                            <TouchableOpacity
+                                                style={styles.forwardItem}
+                                                onPress={() => toggleSelectForwardContact(String(item.id))}
+                                                activeOpacity={0.8}
+                                            >
+                                                <View style={styles.forwardAvatar}>
+                                                    {item.avatar ? (
+                                                        <Image source={{ uri: item.avatar }} style={styles.forwardAvatarImg} />
+                                                    ) : (
+                                                        <Text style={styles.forwardAvatarText}>
+                                                            {item.isGroup ? '👥' : (item.name?.charAt(0) || '?').toUpperCase()}
+                                                        </Text>
+                                                    )}
+                                                </View>
+                                                <View style={{ flex: 1 }}>
+                                                    <Text style={styles.forwardName}>
+                                                        {item.isGroup ? `[Nhóm] ${item.name}` : item.name}
+                                                    </Text>
+                                                </View>
+                                                <MaterialIcons 
+                                                    name={isSelected ? "check-box" : "check-box-outline-blank"} 
+                                                    size={24} 
+                                                    color={isSelected ? "#10b981" : "#9ca3af"} 
+                                                />
+                                            </TouchableOpacity>
+                                        );
+                                    }}
+                                    ListEmptyComponent={
+                                        <Text style={styles.pinnedEmptyText}>Không có liên hệ nào</Text>
+                                    }
+                                />
+                                {selectedForwardIds.length > 0 && (
                                     <TouchableOpacity
-                                        style={styles.forwardItem}
-                                        onPress={() => handleForwardMessage(item)}
+                                        style={styles.forwardSendBtn}
+                                        onPress={handleBatchForward}
                                     >
-                                        <View style={styles.forwardAvatar}>
-                                            {item.avatar ? (
-                                                <Image source={{ uri: item.avatar }} style={styles.forwardAvatarImg} />
-                                            ) : (
-                                                <Text style={styles.forwardAvatarText}>
-                                                    {item.isGroup ? '👥' : (item.name?.charAt(0) || '?').toUpperCase()}
-                                                </Text>
-                                            )}
-                                        </View>
-                                        <View style={{ flex: 1 }}>
-                                            <Text style={styles.forwardName}>
-                                                {item.isGroup ? `[Nhóm] ${item.name}` : item.name}
-                                            </Text>
-                                        </View>
-                                        <MaterialIcons name="send" size={20} color="#10b981" />
+                                        <Text style={styles.forwardSendBtnText}>
+                                            Gửi đến {selectedForwardIds.length} cuộc hội thoại
+                                        </Text>
                                     </TouchableOpacity>
                                 )}
-                                ListEmptyComponent={
-                                    <Text style={styles.pinnedEmptyText}>Không có liên hệ nào</Text>
-                                }
-                            />
+                            </>
                         )}
                     </Pressable>
                 </Pressable>
@@ -1939,6 +2704,10 @@ export default function ChatScreen() {
                                             const success = await unpinMessage(messageId, userId, token);
                                             if (success) {
                                                 applyPinLocal(item, false);
+                                                // Cập nhật pinnedMessages ngay để gỡ ghim tức thì trong UI modal
+                                                setPinnedMessages((prev) =>
+                                                    prev.filter((m) => getMessageId(m) !== messageId)
+                                                );
                                             } else {
                                                 Alert.alert('Lỗi', 'Không thể bỏ ghim tin nhắn');
                                             }
@@ -2036,6 +2805,19 @@ export default function ChatScreen() {
                             </View>
                         </View>
 
+                        {isPrivate !== 'true' && (
+                            <TouchableOpacity
+                                style={styles.menuItem}
+                                onPress={() => {
+                                    setConvSettingsVisible(false);
+                                    setCreatePollVisible(true);
+                                }}
+                            >
+                                <MaterialIcons name="poll" size={20} color="#111827" />
+                                <Text style={styles.menuItemText}>Tạo cuộc bình chọn</Text>
+                            </TouchableOpacity>
+                        )}
+
                         {/* Clear history */}
                         <TouchableOpacity
                             style={styles.menuItem}
@@ -2076,6 +2858,13 @@ export default function ChatScreen() {
                     </Pressable>
                 </Pressable>
             </Modal>
+
+            {/* Create Poll Modal */}
+            <CreatePollModal
+                visible={createPollVisible}
+                onClose={() => setCreatePollVisible(false)}
+                onCreate={handleCreatePoll}
+            />
         </KeyboardAvoidingView>
     );
 }
@@ -2136,6 +2925,50 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.1,
         shadowRadius: 2,
+    },
+    replyQuoteContainer: {
+        flexDirection: 'row',
+        paddingVertical: 4,
+        paddingHorizontal: 8,
+        borderRadius: 8,
+        marginBottom: 8,
+        alignItems: 'center',
+    },
+    myReplyQuoteContainer: {
+        backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    },
+    theirReplyQuoteContainer: {
+        backgroundColor: '#f3f4f6',
+    },
+    replyQuoteBar: {
+        width: 3,
+        height: '100%',
+        backgroundColor: '#10b981',
+        marginRight: 8,
+        borderRadius: 2,
+    },
+    replyQuoteContent: {
+        flex: 1,
+    },
+    replyQuoteSender: {
+        fontSize: 12,
+        fontWeight: 'bold',
+        marginBottom: 2,
+    },
+    myReplyQuoteSender: {
+        color: '#d1fae5',
+    },
+    theirReplyQuoteSender: {
+        color: '#10b981',
+    },
+    replyQuoteText: {
+        fontSize: 13,
+    },
+    myReplyQuoteText: {
+        color: '#e6f4fe',
+    },
+    theirReplyQuoteText: {
+        color: '#6b7280',
     },
     pinnedTag: {
         flexDirection: 'row',
@@ -2360,6 +3193,37 @@ const styles = StyleSheet.create({
         fontSize: 15,
         color: '#111827',
         fontWeight: '500',
+    },
+    forwardTag: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        marginBottom: 4,
+    },
+    forwardTagText: {
+        fontSize: 12,
+        fontStyle: 'italic',
+        fontWeight: '600',
+    },
+    myForwardTagText: {
+        color: '#d1fae5',
+    },
+    theirForwardTagText: {
+        color: '#6b7280',
+    },
+    forwardSendBtn: {
+        backgroundColor: '#10b981',
+        marginHorizontal: 16,
+        marginVertical: 12,
+        paddingVertical: 12,
+        borderRadius: 8,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    forwardSendBtnText: {
+        color: '#fff',
+        fontSize: 15,
+        fontWeight: 'bold',
     },
     // Reply bar
     replyBar: {

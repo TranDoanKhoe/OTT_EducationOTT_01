@@ -24,9 +24,10 @@ interface PollItemProps {
     poll: Poll;
     currentUserId: string;
     onVote: (pollId: string, optionIndex: number) => void;
+    style?: any;
 }
 
-const PollItem: React.FC<PollItemProps> = ({ poll, currentUserId, onVote }) => {
+const PollItem: React.FC<PollItemProps> = ({ poll, currentUserId, onVote, style }) => {
     const hasVoted = poll.options.some((opt) => opt.voters.includes(currentUserId));
     const userVotes = poll.options
         .map((opt, idx) => (opt.voters.includes(currentUserId) ? idx : -1))
@@ -46,7 +47,7 @@ const PollItem: React.FC<PollItemProps> = ({ poll, currentUserId, onVote }) => {
     };
 
     return (
-        <View style={styles.container}>
+        <View style={[styles.container, style]}>
             {/* Question */}
             <View style={styles.header}>
                 <MaterialIcons name="poll" size={20} color="#3b82f6" />

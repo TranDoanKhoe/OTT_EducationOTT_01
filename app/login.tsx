@@ -70,7 +70,7 @@ export default function Login() {
         try {
             const apiUrl =
                 process.env.EXPO_PUBLIC_BACKEND_URL ||
-                'https://ott-education-balancer-1307761869.ap-southeast-1.elb.amazonaws.com';
+                'http://ott-education-balancer-1307761869.ap-southeast-1.elb.amazonaws.com';
             const normalizedBase = apiUrl.replace(/\/$/, '');
             const endpoints = [
                 `${normalizedBase}/auth/login`,

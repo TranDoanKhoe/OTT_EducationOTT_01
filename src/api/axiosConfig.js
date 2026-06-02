@@ -12,13 +12,13 @@ import eventEmitter from '../utils/eventEmitter';
 
 const RAW_BACKEND_URL =
     process.env.EXPO_PUBLIC_BACKEND_URL ||
-    'https://ott-education-balancer-1307761869.ap-southeast-1.elb.amazonaws.com';
+    'http://ott-education-balancer-1307761869.ap-southeast-1.elb.amazonaws.com';
 
-// Sanitize URL (remove trailing slash, ensure https)
+// Sanitize URL (remove trailing slash, ensure http)
 const BACKEND_URL = (
     /^https?:\/\//i.test(RAW_BACKEND_URL)
         ? RAW_BACKEND_URL
-        : `https://${RAW_BACKEND_URL}`
+        : `http://${RAW_BACKEND_URL}`
 ).replace(/\/$/, '');
 
 // Gán baseURL toàn cục
@@ -31,13 +31,15 @@ console.log('📡 Axios configured with baseURL:', BACKEND_URL);
 
 // ============ REQUEST INTERCEPTOR ============
 // Auto-attach Authorization on every axios call
-// Skip for auth endpoints (refresh, login, register)
+// Skip for auth endpoints (refresh, login, register, third-party AI APIs)
 axios.interceptors.request.use(
     (config) => {
         const skipAuth =
             config.url?.includes('/auth/refresh') ||
             config.url?.includes('/auth/login') ||
-            config.url?.includes('/auth/register');
+            config.url?.includes('/auth/register') ||
+            config.url?.includes('googleapis.com') ||
+            config.url?.includes('mistral.ai');
 
         if (!skipAuth) {
             const token = getAccessTokenSync();

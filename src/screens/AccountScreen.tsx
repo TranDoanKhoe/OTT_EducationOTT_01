@@ -53,7 +53,7 @@ export default function AccountScreen() {
             const token = await AsyncStorage.getItem('accessToken');
             const backendUrl =
                 process.env.EXPO_PUBLIC_BACKEND_URL ||
-                'https://ott-education-balancer-1307761869.ap-southeast-1.elb.amazonaws.com';
+                'http://ott-education-balancer-1307761869.ap-southeast-1.elb.amazonaws.com';
             const response = await fetch(`${backendUrl}/user/update-json`, {
                 method: 'PUT',
                 headers: {
