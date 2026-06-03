@@ -482,7 +482,7 @@ export const getFriendById = async (friendId) => {
     return response.json();
 };
 
-export const resetPassword = async (email) => {
+export const requestPasswordReset = async (email) => {
     const response = await fetch(`${AUTH_BASE_URL}/auth/forgot-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -491,6 +491,18 @@ export const resetPassword = async (email) => {
     await throwIfNotOk(response, 'Failed to request reset password');
     return safeJson(response);
 };
+
+export const resetPasswordWithCode = async (code, password) => {
+    const response = await fetch(`${AUTH_BASE_URL}/auth/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, password }),
+    });
+    await throwIfNotOk(response, 'Failed to reset password');
+    return safeJson(response);
+};
+
+export const resetPassword = requestPasswordReset;
 
 export const sendVerificationEmail = async (email) => {
     const payload = {

@@ -18,7 +18,8 @@ export const AuthProvider = ({ children }) => {
   // Load token/user from storage on mount
   useEffect(() => {
     const loadStoredAuth = async () => {
-      const storedToken = await AsyncStorage.getItem('token');
+      const storedToken =
+        (await AsyncStorage.getItem('accessToken')) || (await AsyncStorage.getItem('token'));
       const storedUserId = await AsyncStorage.getItem('userId');
       const storedRole = await AsyncStorage.getItem('userRole');
       if (storedToken && storedUserId) {
@@ -32,13 +33,13 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     const res = await (await import('../services/authService')).login(email, password);
-    setToken(res.token);
+    setToken(res.accessToken);
     setUser({ id: res.userId, role: res.role });
   };
 
   const register = async (payload) => {
     const res = await (await import('../services/authService')).register(payload);
-    setToken(res.token);
+    setToken(res.accessToken);
     setUser({ id: res.userId, role: res.role });
   };
 
