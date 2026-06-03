@@ -7,6 +7,7 @@ import {
     RefreshControl,
     StyleSheet,
     Text,
+    TextInput,
     TouchableOpacity,
     View,
 } from 'react-native';
@@ -23,6 +24,8 @@ export default function NotificationsTabScreen() {
     const [refreshing, setRefreshing] = useState(false);
     const [friendRequests, setFriendRequests] = useState([]);
     const [groupInvites, setGroupInvites] = useState([]);
+    const [filter, setFilter] = useState('all');
+    const [search, setSearch] = useState('');
 
     const load = useCallback(async () => {
         try {
@@ -48,9 +51,25 @@ export default function NotificationsTabScreen() {
         load();
     };
 
-    const combined = useMemo(() => {
-        return [...friendRequests, ...groupInvites];
-    }, [friendRequests, groupInvites]);
+    const combined = useMemo(() => [...friendRequests, ...groupInvites], [friendRequests, groupInvites]);
+
+    const visibleNotifications = useMemo(() => {
+        const keyword = search.trim().toLowerCase();
+        return combined.filter((item) => {
+            const matchesType = filter === 'all' || item.type === filter;
+            const haystack = `${item.title || ''} ${item.subtitle || ''}`.toLowerCase();
+            const matchesSearch = !keyword || haystack.includes(keyword);
+            return matchesType && matchesSearch;
+        });
+    }, [combined, filter, search]);
+
+    const filters = useMemo(() => {
+        return [
+            { key: 'all', label: 'Tất cả', count: combined.length },
+            { key: 'friend', label: 'Kết bạn', count: friendRequests.length },
+            { key: 'group', label: 'Nhóm', count: groupInvites.length },
+        ];
+    }, [combined.length, friendRequests.length, groupInvites.length]);
 
     const handleAction = async (item, action) => {
         try {
@@ -116,8 +135,48 @@ export default function NotificationsTabScreen() {
                 <Text style={styles.headerSub}>Lời mời kết bạn và nhóm</Text>
             </View>
 
+            <View style={styles.controls}>
+                <View style={styles.searchBox}>
+                    <MaterialIcons name="search" size={18} color="#9ca3af" />
+                    <TextInput
+                        style={styles.searchInput}
+                        placeholder="Tìm theo tên, nhóm..."
+                        placeholderTextColor="#9ca3af"
+                        value={search}
+                        onChangeText={setSearch}
+                    />
+                    {search.length > 0 && (
+                        <TouchableOpacity onPress={() => setSearch('')}>
+                            <MaterialIcons name="cancel" size={18} color="#9ca3af" />
+                        </TouchableOpacity>
+                    )}
+                </View>
+
+                <View style={styles.filterRow}>
+                    {filters.map((item) => {
+                        const active = filter === item.key;
+                        return (
+                            <TouchableOpacity
+                                key={item.key}
+                                style={[styles.filterChip, active && styles.filterChipActive]}
+                                onPress={() => setFilter(item.key)}
+                            >
+                                <Text style={[styles.filterText, active && styles.filterTextActive]}>
+                                    {item.label}
+                                </Text>
+                                <View style={[styles.countBadge, active && styles.countBadgeActive]}>
+                                    <Text style={[styles.countText, active && styles.countTextActive]}>
+                                        {item.count}
+                                    </Text>
+                                </View>
+                            </TouchableOpacity>
+                        );
+                    })}
+                </View>
+            </View>
+
             <FlatList
-                data={combined}
+                data={visibleNotifications}
                 keyExtractor={(item, index) => `${item.type}-${item.id}-${index}`}
                 renderItem={renderItem}
                 refreshControl={
@@ -131,10 +190,12 @@ export default function NotificationsTabScreen() {
                 ListEmptyComponent={
                     <View style={styles.emptyWrap}>
                         <MaterialIcons name="notifications-none" size={44} color="#9ca3af" />
-                        <Text style={styles.emptyText}>Không có thông báo nào</Text>
+                        <Text style={styles.emptyText}>
+                            {combined.length ? 'Không tìm thấy thông báo phù hợp' : 'Không có thông báo nào'}
+                        </Text>
                     </View>
                 }
-                contentContainerStyle={combined.length ? styles.list : styles.emptyGrow}
+                contentContainerStyle={visibleNotifications.length ? styles.list : styles.emptyGrow}
             />
         </SafeAreaView>
     );
@@ -152,6 +213,61 @@ const styles = StyleSheet.create({
     },
     headerTitle: { fontSize: 20, fontWeight: '700', color: '#065f46' },
     headerSub: { fontSize: 12, color: '#6b7280', marginTop: 2 },
+    controls: {
+        backgroundColor: '#fff',
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        borderBottomWidth: 1,
+        borderBottomColor: '#d1fae5',
+    },
+    searchBox: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#f9fafb',
+        borderWidth: 1,
+        borderColor: '#e5e7eb',
+        borderRadius: 10,
+        paddingHorizontal: 10,
+        minHeight: 42,
+    },
+    searchInput: {
+        flex: 1,
+        color: '#111827',
+        fontSize: 14,
+        marginLeft: 8,
+        paddingVertical: 8,
+    },
+    filterRow: {
+        flexDirection: 'row',
+        gap: 8,
+        marginTop: 10,
+    },
+    filterChip: {
+        flex: 1,
+        minHeight: 36,
+        borderRadius: 18,
+        backgroundColor: '#f3f4f6',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 6,
+        paddingHorizontal: 8,
+    },
+    filterChipActive: { backgroundColor: '#10b981' },
+    filterText: { color: '#374151', fontWeight: '600', fontSize: 13 },
+    filterTextActive: { color: '#fff' },
+    countBadge: {
+        minWidth: 20,
+        height: 20,
+        borderRadius: 10,
+        backgroundColor: '#e5e7eb',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: 5,
+    },
+    countBadgeActive: { backgroundColor: 'rgba(255,255,255,0.22)' },
+    countText: { color: '#374151', fontSize: 11, fontWeight: '700' },
+    countTextActive: { color: '#fff' },
     list: { paddingHorizontal: 12, paddingVertical: 10 },
     card: {
         backgroundColor: '#fff',
@@ -184,4 +300,3 @@ const styles = StyleSheet.create({
     emptyWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 80 },
     emptyText: { marginTop: 10, color: '#6b7280' },
 });
-

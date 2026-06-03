@@ -1,6 +1,6 @@
 import { SafeAreaView } from 'react-native-safe-area-context';
 // @ts-nocheck
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     View,
     Text,
@@ -16,6 +16,7 @@ import { useRouter } from 'expo-router';
 import localStorage from '../src/utils/localStoragePolyfill';
 
 const LOGIN_TIMEOUT_MS = 60000;
+const REMEMBER_USERNAME_KEY = 'lastLoginUsername';
 
 const fetchWithTimeout = async (
     url,
@@ -38,9 +39,27 @@ export default function Login() {
     const [password, setPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
+    const [rememberUsername, setRememberUsername] = useState(true);
+
+    useEffect(() => {
+        const loadSavedUsername = async () => {
+            try {
+                await localStorage.initPromise;
+                const savedUsername = localStorage.getItem(REMEMBER_USERNAME_KEY);
+                if (savedUsername) {
+                    setUsername(savedUsername);
+                    setRememberUsername(true);
+                }
+            } catch (error) {
+                console.error('Lỗi tải tài khoản đã lưu:', error);
+            }
+        };
+        loadSavedUsername();
+    }, []);
 
     const handleLogin = async () => {
-        if (!username || !password) {
+        const normalizedUsername = username.trim();
+        if (!normalizedUsername || !password) {
             Alert.alert('Lỗi', 'Vui lòng nhập tài khoản và mật khẩu.');
             return;
         }
@@ -65,7 +84,7 @@ export default function Login() {
                     const response = await fetchWithTimeout(endpoint, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ username, password }),
+                        body: JSON.stringify({ username: normalizedUsername, password }),
                     });
 
                     if (response.ok) {
@@ -112,6 +131,11 @@ export default function Login() {
             localStorage.setItem('userId', data.userId);
             localStorage.setItem('token', data.accessToken);
             localStorage.setItem('userRole', data.role || 'STUDENT');
+            if (rememberUsername) {
+                localStorage.setItem(REMEMBER_USERNAME_KEY, normalizedUsername);
+            } else {
+                localStorage.removeItem(REMEMBER_USERNAME_KEY);
+            }
 
             // Navigate to main tabs
             router.replace('/(tabs)');
@@ -170,6 +194,16 @@ export default function Login() {
                             </TouchableOpacity>
                         </View>
                     </View>
+
+                    <TouchableOpacity
+                        style={styles.rememberRow}
+                        onPress={() => setRememberUsername((prev) => !prev)}
+                    >
+                        <View style={[styles.checkbox, rememberUsername && styles.checkboxActive]}>
+                            {rememberUsername && <Text style={styles.checkboxMark}>✓</Text>}
+                        </View>
+                        <Text style={styles.rememberText}>Ghi nhớ tài khoản</Text>
+                    </TouchableOpacity>
 
                     <TouchableOpacity
                         style={styles.forgotBtn}
@@ -283,6 +317,39 @@ const styles = StyleSheet.create({
         color: '#6b7280',
         fontSize: 14,
     },
+    rememberRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        alignSelf: 'flex-start',
+        marginTop: -4,
+        marginBottom: 12,
+    },
+    checkbox: {
+        width: 20,
+        height: 20,
+        borderRadius: 4,
+        borderWidth: 1,
+        borderColor: '#d1d5db',
+        backgroundColor: '#fff',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 8,
+    },
+    checkboxActive: {
+        backgroundColor: '#10b981',
+        borderColor: '#10b981',
+    },
+    checkboxMark: {
+        color: '#fff',
+        fontSize: 14,
+        fontWeight: 'bold',
+        lineHeight: 16,
+    },
+    rememberText: {
+        color: '#374151',
+        fontSize: 14,
+        fontWeight: '500',
+    },
     forgotBtn: {
         alignSelf: 'flex-end',
         marginBottom: 24,
@@ -318,5 +385,4 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
     },
 });
-
 
