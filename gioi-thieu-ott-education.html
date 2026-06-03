@@ -1,0 +1,1817 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Giới thiệu dự án OTT Education</title>
+  <style>
+    :root {
+      --bg: #f4fbf8;
+      --paper: #ffffff;
+      --paper-strong: #f8fffc;
+      --ink: #102019;
+      --muted: #5f746b;
+      --soft: #d8eee5;
+      --line: #c7e2d7;
+      --brand: #0b8f68;
+      --brand-strong: #066145;
+      --brand-soft: #dff7ee;
+      --blue: #2563eb;
+      --violet: #7c3aed;
+      --amber: #d97706;
+      --red: #dc2626;
+      --shadow: 0 22px 70px rgba(12, 66, 49, 0.14);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      color: var(--ink);
+      background:
+        linear-gradient(180deg, rgba(223, 247, 238, 0.9), rgba(244, 251, 248, 0.94) 420px),
+        var(--bg);
+      line-height: 1.55;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    .page {
+      min-height: 100vh;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      padding: 12px 28px;
+      background: rgba(255, 255, 255, 0.88);
+      border-bottom: 1px solid rgba(199, 226, 215, 0.9);
+      backdrop-filter: blur(14px);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 210px;
+      font-weight: 800;
+      color: var(--brand-strong);
+    }
+
+    .brand-mark {
+      width: 34px;
+      height: 34px;
+      display: grid;
+      place-items: center;
+      border-radius: 9px;
+      color: #fff;
+      background: linear-gradient(135deg, #0b8f68, #2563eb);
+      box-shadow: 0 10px 22px rgba(11, 143, 104, 0.22);
+    }
+
+    .nav {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 6px;
+    }
+
+    .nav a {
+      padding: 8px 10px;
+      border-radius: 8px;
+      color: #365348;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .nav a:hover {
+      background: var(--brand-soft);
+      color: var(--brand-strong);
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 34px;
+      align-items: center;
+      width: min(1180px, calc(100% - 40px));
+      margin: 0 auto;
+      padding: 58px 0 36px;
+    }
+
+    .hero-copy {
+      padding: 12px 0;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin: 0 0 16px;
+      padding: 8px 11px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.72);
+      color: var(--brand-strong);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .pulse {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: #10b981;
+      box-shadow: 0 0 0 5px rgba(16, 185, 129, 0.16);
+    }
+
+    h1 {
+      margin: 0;
+      max-width: 720px;
+      font-size: clamp(38px, 6vw, 72px);
+      line-height: 1.02;
+      letter-spacing: 0;
+      color: #092116;
+    }
+
+    .hero-sub {
+      margin: 20px 0 0;
+      max-width: 720px;
+      color: #435f54;
+      font-size: 18px;
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 28px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 44px;
+      padding: 12px 16px;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 800;
+    }
+
+    .btn.primary {
+      color: #fff;
+      background: var(--brand);
+      box-shadow: 0 14px 30px rgba(11, 143, 104, 0.24);
+    }
+
+    .btn.secondary {
+      color: var(--brand-strong);
+      background: #fff;
+      border-color: var(--line);
+    }
+
+    .hero-panel {
+      position: relative;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.78);
+      box-shadow: var(--shadow);
+    }
+
+    .phone {
+      width: min(330px, 100%);
+      margin: 0 auto;
+      padding: 12px;
+      border-radius: 28px;
+      background: #0f172a;
+      box-shadow: 0 20px 60px rgba(15, 23, 42, 0.24);
+    }
+
+    .screen {
+      min-height: 560px;
+      border-radius: 22px;
+      overflow: hidden;
+      background: #f0fdf9;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .screen-head {
+      padding: 18px 16px;
+      background: #fff;
+      border-bottom: 1px solid #d1fae5;
+    }
+
+    .screen-title {
+      margin: 0;
+      color: #065f46;
+      font-size: 20px;
+      font-weight: 800;
+    }
+
+    .screen-sub {
+      margin: 3px 0 0;
+      color: #6b7280;
+      font-size: 12px;
+    }
+
+    .chat-list {
+      padding: 16px;
+    }
+
+    .chat-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      padding: 11px;
+      margin-bottom: 10px;
+      background: #fff;
+      border: 1px solid #d1fae5;
+      border-radius: 12px;
+    }
+
+    .avatar {
+      width: 40px;
+      height: 40px;
+      display: grid;
+      place-items: center;
+      flex: 0 0 auto;
+      border-radius: 999px;
+      color: #065f46;
+      background: #d1fae5;
+      font-weight: 900;
+    }
+
+    .chat-main {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .chat-name {
+      margin: 0;
+      font-size: 14px;
+      font-weight: 800;
+      color: #111827;
+    }
+
+    .chat-text {
+      margin: 2px 0 0;
+      color: #6b7280;
+      font-size: 12px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: #eff6ff;
+      color: var(--blue);
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      width: min(1180px, calc(100% - 40px));
+      margin: 0 auto 34px;
+    }
+
+    .metric {
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+      box-shadow: 0 10px 28px rgba(12, 66, 49, 0.06);
+    }
+
+    .metric-value {
+      color: var(--brand-strong);
+      font-size: 28px;
+      font-weight: 900;
+    }
+
+    .metric-label {
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    section {
+      width: min(1180px, calc(100% - 40px));
+      margin: 0 auto;
+      padding: 36px 0;
+    }
+
+    .section-head {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 20px;
+      margin-bottom: 18px;
+    }
+
+    h2 {
+      margin: 0;
+      color: #102019;
+      font-size: clamp(26px, 3vw, 38px);
+      letter-spacing: 0;
+    }
+
+    .section-desc {
+      max-width: 560px;
+      margin: 8px 0 0;
+      color: var(--muted);
+    }
+
+    .grid {
+      display: grid;
+      gap: 14px;
+    }
+
+    .grid.cols-2 {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    .grid.cols-3 {
+      grid-template-columns: repeat(3, 1fr);
+    }
+
+    .grid.cols-4 {
+      grid-template-columns: repeat(4, 1fr);
+    }
+
+    .card {
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--paper);
+      box-shadow: 0 12px 36px rgba(12, 66, 49, 0.06);
+    }
+
+    .card h3 {
+      margin: 0 0 8px;
+      color: #15362a;
+      font-size: 18px;
+    }
+
+    .card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .icon {
+      width: 38px;
+      height: 38px;
+      display: grid;
+      place-items: center;
+      margin-bottom: 12px;
+      border-radius: 10px;
+      background: var(--brand-soft);
+      color: var(--brand-strong);
+      font-weight: 900;
+    }
+
+    .feature-list {
+      display: grid;
+      gap: 10px;
+      padding: 0;
+      margin: 12px 0 0;
+      list-style: none;
+    }
+
+    .feature-list li {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      color: #385448;
+      font-size: 14px;
+    }
+
+    .check {
+      width: 20px;
+      height: 20px;
+      display: grid;
+      place-items: center;
+      flex: 0 0 auto;
+      border-radius: 999px;
+      background: #dcfce7;
+      color: #15803d;
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .architecture {
+      display: grid;
+      grid-template-columns: 1fr 90px 1fr 90px 1fr;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .arch-box {
+      min-height: 150px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+    }
+
+    .arch-box strong {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--brand-strong);
+      font-size: 18px;
+    }
+
+    .arrow {
+      height: 2px;
+      background: var(--brand);
+      position: relative;
+    }
+
+    .arrow::after {
+      content: "";
+      position: absolute;
+      right: -1px;
+      top: -5px;
+      width: 0;
+      height: 0;
+      border-top: 6px solid transparent;
+      border-bottom: 6px solid transparent;
+      border-left: 8px solid var(--brand);
+    }
+
+    .timeline {
+      display: grid;
+      gap: 12px;
+    }
+
+    .timeline-item {
+      display: grid;
+      grid-template-columns: 120px 1fr;
+      gap: 14px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+    }
+
+    .timeline-phase {
+      color: var(--brand-strong);
+      font-weight: 900;
+    }
+
+    .timeline-title {
+      margin: 0 0 3px;
+      font-weight: 900;
+    }
+
+    .timeline-text {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 760px;
+    }
+
+    th,
+    td {
+      padding: 13px 14px;
+      border-bottom: 1px solid #edf5f1;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #f0fdf9;
+      color: #065f46;
+      font-size: 13px;
+      text-transform: uppercase;
+    }
+
+    td {
+      color: #355045;
+      font-size: 14px;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .demo {
+      display: grid;
+      grid-template-columns: 0.9fr 1.1fr;
+      gap: 16px;
+      align-items: stretch;
+    }
+
+    .demo-controls {
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+    }
+
+    .demo-controls label {
+      display: block;
+      margin: 14px 0 6px;
+      color: #274438;
+      font-weight: 800;
+      font-size: 13px;
+    }
+
+    .demo-controls input {
+      width: 100%;
+      min-height: 42px;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      color: var(--ink);
+    }
+
+    .demo-output {
+      min-height: 310px;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #0f172a;
+      color: #d1fae5;
+      overflow: hidden;
+    }
+
+    .demo-output pre {
+      margin: 0;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: Consolas, Monaco, monospace;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .slide-bank {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+
+    .slide-card {
+      min-height: 150px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+      box-shadow: 0 10px 26px rgba(12, 66, 49, 0.05);
+    }
+
+    .slide-card small {
+      display: inline-flex;
+      margin-bottom: 8px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: #eff6ff;
+      color: var(--blue);
+      font-weight: 800;
+    }
+
+    .slide-card strong {
+      display: block;
+      margin-bottom: 6px;
+      color: #15362a;
+      font-size: 15px;
+    }
+
+    .slide-card span {
+      display: block;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .footer {
+      margin-top: 40px;
+      padding: 34px 20px;
+      color: #dff7ee;
+      background: #064e3b;
+      text-align: center;
+    }
+
+    .footer strong {
+      display: block;
+      margin-bottom: 8px;
+      color: #fff;
+      font-size: 20px;
+    }
+
+    .print-note {
+      display: none;
+    }
+
+    @media (max-width: 900px) {
+      .topbar {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .hero,
+      .demo {
+        grid-template-columns: 1fr;
+      }
+
+      .metrics,
+      .grid.cols-3,
+      .grid.cols-4,
+      .slide-bank {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .architecture {
+        grid-template-columns: 1fr;
+      }
+
+      .arrow {
+        height: 34px;
+        width: 2px;
+        justify-self: center;
+      }
+
+      .arrow::after {
+        right: -5px;
+        top: auto;
+        bottom: -1px;
+        border-left: 6px solid transparent;
+        border-right: 6px solid transparent;
+        border-top: 8px solid var(--brand);
+        border-bottom: 0;
+      }
+    }
+
+    @media (max-width: 620px) {
+      .topbar {
+        padding: 12px 16px;
+      }
+
+      .hero,
+      .metrics,
+      section {
+        width: min(100% - 24px, 1180px);
+      }
+
+      .metrics,
+      .grid.cols-2,
+      .grid.cols-3,
+      .grid.cols-4,
+      .slide-bank {
+        grid-template-columns: 1fr;
+      }
+
+      .section-head {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .timeline-item {
+        grid-template-columns: 1fr;
+      }
+
+      .screen {
+        min-height: 430px;
+      }
+    }
+
+    @media print {
+      body {
+        background: #fff;
+      }
+
+      .topbar,
+      .hero-actions,
+      .demo,
+      .slide-bank,
+      .footer {
+        display: none;
+      }
+
+      section,
+      .hero,
+      .metrics {
+        width: 100%;
+        padding: 16px 0;
+      }
+
+      .card,
+      .metric,
+      .arch-box,
+      .timeline-item,
+      .table-wrap {
+        box-shadow: none;
+        break-inside: avoid;
+      }
+
+      .print-note {
+        display: block;
+        padding: 10px;
+        border: 1px solid #ccc;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header class="topbar">
+      <a class="brand" href="#home" aria-label="OTT Education">
+        <span class="brand-mark">OTT</span>
+        <span>OTT Education</span>
+      </a>
+      <nav class="nav" aria-label="Điều hướng nội dung">
+        <a href="#overview">Tổng quan</a>
+        <a href="#features">Tính năng</a>
+        <a href="#architecture">Kiến trúc</a>
+        <a href="#tech">Công nghệ</a>
+        <a href="#testing">Testing</a>
+        <a href="#contribution">Đóng góp</a>
+      </nav>
+    </header>
+
+    <main id="home">
+      <section class="hero" aria-labelledby="hero-title">
+        <div class="hero-copy">
+          <p class="eyebrow"><span class="pulse"></span>Đồ án Công nghệ mới - OTT Education</p>
+          <h1 id="hero-title">Nền tảng học tập và trao đổi trực tuyến đa nền tảng</h1>
+          <p class="hero-sub">
+            OTT Education kết hợp mobile app, web app và backend Spring Boot để hỗ trợ chat real-time,
+            quản lý bạn bè, nhóm học tập, tài nguyên, thông báo và cuộc gọi audio/video bằng WebRTC.
+          </p>
+          <div class="hero-actions">
+            <a class="btn primary" href="#features">Xem tính năng</a>
+            <a class="btn secondary" href="#architecture">Xem kiến trúc</a>
+            <button class="btn secondary" type="button" onclick="window.print()">In báo cáo</button>
+          </div>
+        </div>
+
+        <div class="hero-panel" aria-label="Minh họa ứng dụng mobile">
+          <div class="phone">
+            <div class="screen">
+              <div class="screen-head">
+                <p class="screen-title">Thông báo</p>
+                <p class="screen-sub">Lời mời kết bạn và nhóm</p>
+              </div>
+              <div class="chat-list">
+                <div class="chat-row">
+                  <div class="avatar">TV</div>
+                  <div class="chat-main">
+                    <p class="chat-name">Thanh Van</p>
+                    <p class="chat-text">Đã gửi lời mời kết bạn</p>
+                  </div>
+                  <span class="tag">Kết bạn</span>
+                </div>
+                <div class="chat-row">
+                  <div class="avatar">CN</div>
+                  <div class="chat-main">
+                    <p class="chat-name">Nhóm Công nghệ mới</p>
+                    <p class="chat-text">Mời tham gia nhóm học tập</p>
+                  </div>
+                  <span class="tag">Nhóm</span>
+                </div>
+                <div class="chat-row">
+                  <div class="avatar">AI</div>
+                  <div class="chat-main">
+                    <p class="chat-name">Trợ lý học tập</p>
+                    <p class="chat-text">Gợi ý tài liệu ôn tập Java Spring Boot</p>
+                  </div>
+                  <span class="tag">AI</span>
+                </div>
+                <div class="chat-row">
+                  <div class="avatar">RT</div>
+                  <div class="chat-main">
+                    <p class="chat-name">Chat real-time</p>
+                    <p class="chat-text">WebSocket/STOMP đồng bộ tin nhắn tức thời</p>
+                  </div>
+                  <span class="tag">Live</span>
+                </div>
+                <div class="chat-row">
+                  <div class="avatar">AV</div>
+                  <div class="chat-main">
+                    <p class="chat-name">Audio/Video Call</p>
+                    <p class="chat-text">WebRTC hỗ trợ gọi 1-1 và nhóm</p>
+                  </div>
+                  <span class="tag">Call</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="metrics" aria-label="Chỉ số dự án">
+        <div class="metric">
+          <div class="metric-value">3</div>
+          <div class="metric-label">Nền tảng chính</div>
+        </div>
+        <div class="metric">
+          <div class="metric-value">8+</div>
+          <div class="metric-label">Module chức năng</div>
+        </div>
+        <div class="metric">
+          <div class="metric-value">Real-time</div>
+          <div class="metric-label">Chat và thông báo</div>
+        </div>
+        <div class="metric">
+          <div class="metric-value">JWT</div>
+          <div class="metric-label">Xác thực bảo mật</div>
+        </div>
+      </div>
+
+      <section id="overview">
+        <div class="section-head">
+          <div>
+            <h2>Tổng quan dự án</h2>
+            <p class="section-desc">
+              Dự án hướng đến mô hình học tập trực tuyến có giao tiếp tức thời, phù hợp cho sinh viên,
+              giảng viên và nhóm học tập cần trao đổi nhanh trong cùng một hệ thống.
+            </p>
+          </div>
+          <span class="tag">CLO 1 - CLO 5</span>
+        </div>
+
+        <div class="grid cols-3">
+          <article class="card">
+            <div class="icon">M</div>
+            <h3>Mobile App</h3>
+            <p>Ứng dụng React Native với Expo Router, dùng cho chat, danh bạ, thông báo, lớp học và tài nguyên.</p>
+          </article>
+          <article class="card">
+            <div class="icon">W</div>
+            <h3>Web App</h3>
+            <p>Ứng dụng React + Vite hỗ trợ giao diện quản trị, chat, quản lý người dùng và thống kê.</p>
+          </article>
+          <article class="card">
+            <div class="icon">B</div>
+            <h3>Backend</h3>
+            <p>Spring Boot cung cấp RESTful API, WebSocket/STOMP, xác thực JWT và kết nối MongoDB.</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="features">
+        <div class="section-head">
+          <div>
+            <h2>Tính năng chính</h2>
+            <p class="section-desc">
+              Các tính năng được nhóm phát triển theo hướng thực tế: đăng nhập, chat, bạn bè, nhóm, thông báo,
+              tài nguyên, cuộc gọi và quản lý tài khoản.
+            </p>
+          </div>
+        </div>
+
+        <div class="grid cols-3">
+          <article class="card">
+            <div class="icon">01</div>
+            <h3>Xác thực tài khoản</h3>
+            <p>Đăng nhập, đăng ký, xác thực email, quên mật khẩu và lưu token cho phiên làm việc.</p>
+            <ul class="feature-list">
+              <li><span class="check">✓</span><span>JWT access token và refresh token.</span></li>
+              <li><span class="check">✓</span><span>Ghi nhớ tài khoản đăng nhập.</span></li>
+              <li><span class="check">✓</span><span>Đặt lại mật khẩu bằng mã email.</span></li>
+            </ul>
+          </article>
+
+          <article class="card">
+            <div class="icon">02</div>
+            <h3>Chat real-time</h3>
+            <p>Nhắn tin 1-1 và nhóm với WebSocket/STOMP, đồng bộ trạng thái nhanh giữa web và mobile.</p>
+            <ul class="feature-list">
+              <li><span class="check">✓</span><span>Gửi tin nhắn văn bản, file, ảnh.</span></li>
+              <li><span class="check">✓</span><span>Ghim, thu hồi, xóa, chỉnh sửa tin nhắn.</span></li>
+              <li><span class="check">✓</span><span>Tìm kiếm tin nhắn theo từ khóa.</span></li>
+            </ul>
+          </article>
+
+          <article class="card">
+            <div class="icon">03</div>
+            <h3>Danh bạ và bạn bè</h3>
+            <p>Tìm người dùng bằng số điện thoại, gửi lời mời, chấp nhận hoặc từ chối kết bạn.</p>
+            <ul class="feature-list">
+              <li><span class="check">✓</span><span>Danh sách bạn bè sắp xếp theo tên.</span></li>
+              <li><span class="check">✓</span><span>Tìm bạn bè bằng danh bạ điện thoại.</span></li>
+              <li><span class="check">✓</span><span>Xóa bạn bè hoặc chặn người dùng.</span></li>
+            </ul>
+          </article>
+
+          <article class="card">
+            <div class="icon">04</div>
+            <h3>Nhóm học tập</h3>
+            <p>Tạo nhóm, mời thành viên, ghi chú nhóm, bình chọn và quản lý lời mời vào nhóm.</p>
+            <ul class="feature-list">
+              <li><span class="check">✓</span><span>Tạo nhóm từ danh sách bạn bè.</span></li>
+              <li><span class="check">✓</span><span>Quản lý lời mời nhóm.</span></li>
+              <li><span class="check">✓</span><span>Ghi chú và poll hỗ trợ học nhóm.</span></li>
+            </ul>
+          </article>
+
+          <article class="card">
+            <div class="icon">05</div>
+            <h3>Thông báo</h3>
+            <p>Hiển thị lời mời kết bạn và nhóm, cho phép tìm kiếm, lọc nhanh và xử lý ngay trên mobile.</p>
+            <ul class="feature-list">
+              <li><span class="check">✓</span><span>Lọc thông báo theo loại.</span></li>
+              <li><span class="check">✓</span><span>Tìm kiếm theo tên hoặc nhóm.</span></li>
+              <li><span class="check">✓</span><span>Đồng ý hoặc từ chối lời mời.</span></li>
+            </ul>
+          </article>
+
+          <article class="card">
+            <div class="icon">06</div>
+            <h3>Cuộc gọi WebRTC</h3>
+            <p>Hỗ trợ cuộc gọi audio/video, xử lý quyền media và tín hiệu cuộc gọi qua WebSocket.</p>
+            <ul class="feature-list">
+              <li><span class="check">✓</span><span>Gọi 1-1 audio/video.</span></li>
+              <li><span class="check">✓</span><span>Gọi nhóm trong group chat.</span></li>
+              <li><span class="check">✓</span><span>Hướng dẫn cấp quyền thiết bị.</span></li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section id="architecture">
+        <div class="section-head">
+          <div>
+            <h2>Kiến trúc hệ thống</h2>
+            <p class="section-desc">
+              Hệ thống tách thành client mobile, client web và backend tập trung. RESTful API xử lý dữ liệu,
+              WebSocket/STOMP xử lý real-time, WebRTC xử lý luồng media.
+            </p>
+          </div>
+        </div>
+
+        <div class="architecture">
+          <div class="arch-box">
+            <strong>Client</strong>
+            <span>React Native + Expo</span>
+            <span>React + Vite</span>
+            <span>AsyncStorage / localStorage</span>
+          </div>
+          <div class="arrow" aria-hidden="true"></div>
+          <div class="arch-box">
+            <strong>Backend</strong>
+            <span>Spring Boot REST API</span>
+            <span>WebSocket + STOMP</span>
+            <span>JWT Security</span>
+          </div>
+          <div class="arrow" aria-hidden="true"></div>
+          <div class="arch-box">
+            <strong>Data & Services</strong>
+            <span>MongoDB</span>
+            <span>Email verification</span>
+            <span>Firebase phone reset</span>
+          </div>
+        </div>
+      </section>
+
+      <section id="tech">
+        <div class="section-head">
+          <div>
+            <h2>Công nghệ sử dụng</h2>
+            <p class="section-desc">
+              Danh sách công nghệ bám sát yêu cầu CLO 1, đồng thời thể hiện cách dự án ứng dụng từng công nghệ.
+            </p>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Nhóm công nghệ</th>
+                <th>Công nghệ</th>
+                <th>Vai trò trong dự án</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Mobile</td>
+                <td>React Native, Expo, Expo Router</td>
+                <td>Xây dựng ứng dụng mobile đa nền tảng, điều hướng theo file, quản lý màn hình chat và tài khoản.</td>
+              </tr>
+              <tr>
+                <td>Web</td>
+                <td>React, Vite</td>
+                <td>Xây dựng giao diện web, quản trị hệ thống, chat và thống kê người dùng.</td>
+              </tr>
+              <tr>
+                <td>Backend</td>
+                <td>Spring Boot</td>
+                <td>Cung cấp RESTful API cho xác thực, người dùng, bạn bè, nhóm, tài nguyên và tin nhắn.</td>
+              </tr>
+              <tr>
+                <td>Database</td>
+                <td>MongoDB</td>
+                <td>Lưu trữ user, message, group, resource, verification code và các cấu hình liên quan.</td>
+              </tr>
+              <tr>
+                <td>Bảo mật</td>
+                <td>JWT, Refresh Token</td>
+                <td>Xác thực request, quản lý phiên đăng nhập và bảo vệ API backend.</td>
+              </tr>
+              <tr>
+                <td>Real-time</td>
+                <td>WebSocket, STOMP, SockJS</td>
+                <td>Gửi nhận tin nhắn tức thời, typing status, tín hiệu cuộc gọi và cập nhật nhanh.</td>
+              </tr>
+              <tr>
+                <td>Media</td>
+                <td>WebRTC</td>
+                <td>Thiết lập audio/video call giữa người dùng, trao đổi offer/answer/ICE candidate.</td>
+              </tr>
+              <tr>
+                <td>HTTP Client</td>
+                <td>Axios, Fetch API</td>
+                <td>Gọi REST API, upload file, lấy lịch sử chat, cập nhật hồ sơ và đổi mật khẩu.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="concepts">
+        <div class="section-head">
+          <div>
+            <h2>Khái niệm cần trình bày</h2>
+            <p class="section-desc">
+              Phần này có thể dùng trực tiếp khi thuyết trình CLO 1 về các khái niệm kỹ thuật trong dự án.
+            </p>
+          </div>
+        </div>
+
+        <div class="grid cols-2">
+          <article class="card">
+            <h3>HTTP là gì?</h3>
+            <p>
+              HTTP là giao thức truyền tải dữ liệu giữa client và server. Trong dự án, HTTP được dùng khi mobile
+              hoặc web gọi API để đăng nhập, lấy danh sách bạn bè, cập nhật hồ sơ, tải tài nguyên và gửi request
+              không cần real-time.
+            </p>
+          </article>
+          <article class="card">
+            <h3>RESTful API là gì?</h3>
+            <p>
+              RESTful API là cách thiết kế API theo tài nguyên, dùng HTTP method như GET, POST, PUT, DELETE.
+              Ví dụ: POST /auth/login, GET /user/get-info-for-user, POST /message/upload-file.
+            </p>
+          </article>
+          <article class="card">
+            <h3>WebSocket là gì?</h3>
+            <p>
+              WebSocket tạo kết nối hai chiều liên tục giữa client và server. Dự án dùng WebSocket/STOMP để
+              gửi tin nhắn real-time, typing status và tín hiệu cuộc gọi.
+            </p>
+          </article>
+          <article class="card">
+            <h3>WebRTC là gì?</h3>
+            <p>
+              WebRTC cho phép truyền audio/video trực tiếp giữa các client. Backend hỗ trợ phần signaling,
+              còn luồng media chính đi qua peer connection giữa người dùng.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section id="testing">
+        <div class="section-head">
+          <div>
+            <h2>Kế hoạch kiểm thử</h2>
+            <p class="section-desc">
+              Checklist kiểm thử tập trung vào các luồng có rủi ro cao: auth, real-time chat, refresh token,
+              notification và WebRTC.
+            </p>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>STT</th>
+                <th>Hạng mục</th>
+                <th>Kịch bản kiểm thử</th>
+                <th>Kết quả mong đợi</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>1</td>
+                <td>Đăng nhập</td>
+                <td>Nhập tài khoản/mật khẩu đúng, sai, thiếu trường.</td>
+                <td>Đăng nhập thành công hoặc hiển thị lỗi rõ ràng.</td>
+              </tr>
+              <tr>
+                <td>2</td>
+                <td>Ghi nhớ tài khoản</td>
+                <td>Bật ghi nhớ, đăng nhập, đăng xuất rồi quay lại màn login.</td>
+                <td>Tài khoản được tự động điền lại.</td>
+              </tr>
+              <tr>
+                <td>3</td>
+                <td>Quên mật khẩu</td>
+                <td>Gửi email, nhập mã, đặt mật khẩu mới.</td>
+                <td>Mật khẩu được cập nhật và có thể đăng nhập lại.</td>
+              </tr>
+              <tr>
+                <td>4</td>
+                <td>Chat real-time</td>
+                <td>Mở mobile và web, gửi tin nhắn giữa hai tài khoản.</td>
+                <td>Tin nhắn xuất hiện tức thời ở cả hai bên.</td>
+              </tr>
+              <tr>
+                <td>5</td>
+                <td>Tìm kiếm tin nhắn</td>
+                <td>Nhập từ khóa trong màn chat.</td>
+                <td>Danh sách kết quả đúng nội dung tìm kiếm.</td>
+              </tr>
+              <tr>
+                <td>6</td>
+                <td>Thông báo</td>
+                <td>Gửi lời mời kết bạn/nhóm, lọc theo loại và tìm kiếm.</td>
+                <td>Thông báo hiển thị đúng, lọc đúng, thao tác accept/reject được.</td>
+              </tr>
+              <tr>
+                <td>7</td>
+                <td>WebRTC</td>
+                <td>Gọi audio/video giữa hai thiết bị thật.</td>
+                <td>Thiết lập cuộc gọi, có âm thanh/hình ảnh ổn định.</td>
+              </tr>
+              <tr>
+                <td>8</td>
+                <td>Upload tài nguyên</td>
+                <td>Chọn file/ảnh và gửi lên backend.</td>
+                <td>File được lưu và hiển thị trong cuộc trò chuyện hoặc tài nguyên.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="timeline">
+        <div class="section-head">
+          <div>
+            <h2>Tiến độ phát triển</h2>
+            <p class="section-desc">
+              Lộ trình có thể dùng để trình bày quá trình làm việc theo từng giai đoạn.
+            </p>
+          </div>
+        </div>
+
+        <div class="timeline">
+          <div class="timeline-item">
+            <div class="timeline-phase">Phase 1</div>
+            <div>
+              <p class="timeline-title">Phân tích yêu cầu</p>
+              <p class="timeline-text">Xác định module chính: authentication, chat, call, notification, friend, group và resource.</p>
+            </div>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-phase">Phase 2</div>
+            <div>
+              <p class="timeline-title">Thiết kế kiến trúc</p>
+              <p class="timeline-text">Tách web, mobile, backend; thống nhất API, websocket endpoint và mô hình dữ liệu MongoDB.</p>
+            </div>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-phase">Phase 3</div>
+            <div>
+              <p class="timeline-title">Xây dựng chức năng nền</p>
+              <p class="timeline-text">Hoàn thiện login/register, quản lý token, user profile, friend list và nhóm học tập.</p>
+            </div>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-phase">Phase 4</div>
+            <div>
+              <p class="timeline-title">Tích hợp real-time</p>
+              <p class="timeline-text">Tích hợp WebSocket/STOMP, chat history, typing status, pinned messages và upload file.</p>
+            </div>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-phase">Phase 5</div>
+            <div>
+              <p class="timeline-title">Kiểm thử và hoàn thiện</p>
+              <p class="timeline-text">Kiểm thử mobile-web-backend, bổ sung reset password, filter notification và tài liệu báo cáo.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="contribution">
+        <div class="section-head">
+          <div>
+            <h2>Đóng góp cá nhân</h2>
+            <p class="section-desc">
+              Mẫu nội dung có thể đưa vào báo cáo cá nhân hoặc slide thuyết trình.
+            </p>
+          </div>
+        </div>
+
+        <div class="grid cols-2">
+          <article class="card">
+            <h3>Phần chức năng</h3>
+            <ul class="feature-list">
+              <li><span class="check">✓</span><span>Phát triển luồng quên mật khẩu và đặt lại mật khẩu bằng mã email.</span></li>
+              <li><span class="check">✓</span><span>Cập nhật login lưu accessToken/refreshToken đúng với backend.</span></li>
+              <li><span class="check">✓</span><span>Thêm ghi nhớ tài khoản đăng nhập trên mobile.</span></li>
+              <li><span class="check">✓</span><span>Thêm tìm kiếm và lọc thông báo theo loại lời mời.</span></li>
+            </ul>
+          </article>
+
+          <article class="card">
+            <h3>Phần kiểm thử</h3>
+            <ul class="feature-list">
+              <li><span class="check">✓</span><span>Kiểm tra ESLint cho các file được cập nhật.</span></li>
+              <li><span class="check">✓</span><span>Kiểm tra diff không có trailing whitespace.</span></li>
+              <li><span class="check">✓</span><span>Đảm bảo các thay đổi được commit và push lên nhánh ThanhVan.</span></li>
+              <li><span class="check">✓</span><span>Chuẩn bị nội dung HTML giới thiệu dự án để thuyết trình.</span></li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section id="demo">
+        <div class="section-head">
+          <div>
+            <h2>Demo tạo nội dung giới thiệu</h2>
+            <p class="section-desc">
+              Nhập tên người thuyết trình và lớp để tạo nhanh đoạn mở đầu báo cáo.
+            </p>
+          </div>
+        </div>
+
+        <div class="demo">
+          <div class="demo-controls">
+            <label for="presenter">Người thuyết trình</label>
+            <input id="presenter" value="Thanh Vân" />
+
+            <label for="className">Lớp / nhóm</label>
+            <input id="className" value="Nhóm Công nghệ mới" />
+
+            <label for="topic">Chủ đề chính</label>
+            <input id="topic" value="OTT Education đa nền tảng" />
+
+            <div class="hero-actions">
+              <button class="btn primary" type="button" onclick="renderIntro()">Tạo lời giới thiệu</button>
+              <button class="btn secondary" type="button" onclick="copyIntro()">Sao chép</button>
+            </div>
+          </div>
+
+          <div class="demo-output">
+            <pre id="introOutput"></pre>
+          </div>
+        </div>
+      </section>
+
+      <section id="slide-bank">
+        <div class="section-head">
+          <div>
+            <h2>Ngân hàng slide thuyết trình</h2>
+            <p class="section-desc">
+              Các ý nhỏ bên dưới có thể dùng để chia thành nhiều slide khi trình bày, hoặc chọn nhanh nội dung
+              cho phần vấn đáp.
+            </p>
+          </div>
+          <span class="tag">Slide notes</span>
+        </div>
+
+        <div class="slide-bank" id="slideBank"></div>
+      </section>
+
+      <section id="summary">
+        <div class="section-head">
+          <div>
+            <h2>Kết luận</h2>
+            <p class="section-desc">
+              OTT Education thể hiện khả năng kết hợp nhiều công nghệ hiện đại trong một hệ thống thực tế:
+              mobile, web, backend, RESTful API, WebSocket, WebRTC, JWT và MongoDB.
+            </p>
+          </div>
+        </div>
+
+        <div class="grid cols-3">
+          <article class="card">
+            <h3>Giá trị học thuật</h3>
+            <p>Dự án giúp trình bày rõ các khái niệm HTTP, RESTful API, WebSocket, WebRTC và xác thực JWT.</p>
+          </article>
+          <article class="card">
+            <h3>Giá trị thực tế</h3>
+            <p>Ứng dụng có thể mở rộng thành nền tảng trao đổi học tập cho lớp học, nhóm sinh viên hoặc trung tâm.</p>
+          </article>
+          <article class="card">
+            <h3>Hướng phát triển</h3>
+            <p>Bổ sung push notification native, dashboard học tập, phân quyền lớp học và AI gợi ý tài liệu.</p>
+          </article>
+        </div>
+
+        <p class="print-note">
+          Ghi chú khi in: Trang này đã ẩn navigation và phần demo tương tác để nội dung báo cáo gọn hơn.
+        </p>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <strong>OTT Education</strong>
+      <span>Mobile + Web + Backend + Real-time + WebRTC</span>
+    </footer>
+  </div>
+
+  <script>
+    const introOutput = document.getElementById('introOutput');
+    const slideBank = document.getElementById('slideBank');
+
+    const slideNotes = [
+      {
+        group: 'Mở đầu',
+        title: 'Lý do chọn đề tài',
+        body: 'Nhu cầu học tập trực tuyến tăng, sinh viên cần công cụ trao đổi nhanh, lưu tài nguyên và làm việc nhóm.'
+      },
+      {
+        group: 'Mở đầu',
+        title: 'Vấn đề cần giải quyết',
+        body: 'Các kênh chat rời rạc làm thông tin học tập bị phân tán, khó tìm lại tin nhắn và tài liệu.'
+      },
+      {
+        group: 'Mở đầu',
+        title: 'Mục tiêu dự án',
+        body: 'Xây dựng hệ thống đa nền tảng để học viên có thể nhắn tin, gọi điện, nhận thông báo và quản lý tài nguyên.'
+      },
+      {
+        group: 'Mở đầu',
+        title: 'Đối tượng sử dụng',
+        body: 'Sinh viên, giảng viên, nhóm học tập, lớp học trực tuyến và quản trị viên hệ thống.'
+      },
+      {
+        group: 'Tổng quan',
+        title: 'Mobile app',
+        body: 'React Native và Expo giúp ứng dụng chạy được trên Android, iOS và web preview.'
+      },
+      {
+        group: 'Tổng quan',
+        title: 'Web app',
+        body: 'React và Vite hỗ trợ giao diện nhanh, nhẹ, dễ phát triển các trang quản trị và chat.'
+      },
+      {
+        group: 'Tổng quan',
+        title: 'Backend',
+        body: 'Spring Boot đóng vai trò trung tâm xử lý API, bảo mật, websocket và kết nối database.'
+      },
+      {
+        group: 'Tổng quan',
+        title: 'Database',
+        body: 'MongoDB phù hợp lưu dữ liệu dạng document như message, group, user, resource và verification code.'
+      },
+      {
+        group: 'Công nghệ',
+        title: 'HTTP',
+        body: 'HTTP được dùng cho các request lấy dữ liệu, đăng nhập, cập nhật thông tin và upload tài nguyên.'
+      },
+      {
+        group: 'Công nghệ',
+        title: 'RESTful API',
+        body: 'RESTful API tổ chức endpoint theo tài nguyên, giúp frontend dễ gọi và backend dễ mở rộng.'
+      },
+      {
+        group: 'Công nghệ',
+        title: 'WebSocket',
+        body: 'WebSocket giữ kết nối hai chiều liên tục để server đẩy tin nhắn mới ngay lập tức.'
+      },
+      {
+        group: 'Công nghệ',
+        title: 'STOMP',
+        body: 'STOMP định nghĩa subscribe và publish message rõ ràng trên nền WebSocket.'
+      },
+      {
+        group: 'Công nghệ',
+        title: 'WebRTC',
+        body: 'WebRTC hỗ trợ truyền audio/video trực tiếp giữa các thiết bị trong cuộc gọi.'
+      },
+      {
+        group: 'Công nghệ',
+        title: 'JWT',
+        body: 'JWT giúp backend xác thực request mà không cần lưu session truyền thống trên server.'
+      },
+      {
+        group: 'Công nghệ',
+        title: 'Refresh token',
+        body: 'Refresh token dùng để duy trì phiên đăng nhập khi access token hết hạn.'
+      },
+      {
+        group: 'Công nghệ',
+        title: 'AsyncStorage',
+        body: 'Mobile lưu token, userId và thiết lập người dùng bằng AsyncStorage hoặc polyfill tương ứng.'
+      },
+      {
+        group: 'Auth',
+        title: 'Đăng nhập',
+        body: 'Người dùng nhập username và password, backend trả accessToken, refreshToken, userId và role.'
+      },
+      {
+        group: 'Auth',
+        title: 'Ghi nhớ tài khoản',
+        body: 'Ứng dụng lưu username cuối cùng để tự điền lại, giúp thao tác đăng nhập nhanh hơn.'
+      },
+      {
+        group: 'Auth',
+        title: 'Đăng ký',
+        body: 'Người dùng nhập thông tin, hệ thống gửi mã xác thực email trước khi tạo tài khoản.'
+      },
+      {
+        group: 'Auth',
+        title: 'Quên mật khẩu',
+        body: 'Người dùng gửi email, nhận mã đặt lại mật khẩu và nhập mật khẩu mới trên mobile.'
+      },
+      {
+        group: 'Auth',
+        title: 'Đăng xuất',
+        body: 'Ứng dụng xóa token và dữ liệu phiên, sau đó điều hướng về màn hình đăng nhập.'
+      },
+      {
+        group: 'Chat',
+        title: 'Chat 1-1',
+        body: 'Người dùng có thể nhắn tin trực tiếp với bạn bè qua WebSocket và xem lịch sử bằng REST API.'
+      },
+      {
+        group: 'Chat',
+        title: 'Chat nhóm',
+        body: 'Nhóm học tập có thể trao đổi tin nhắn, chia sẻ file và sử dụng tính năng quản lý thành viên.'
+      },
+      {
+        group: 'Chat',
+        title: 'Typing status',
+        body: 'Ứng dụng gửi trạng thái đang nhập để tăng cảm giác real-time trong cuộc trò chuyện.'
+      },
+      {
+        group: 'Chat',
+        title: 'Ghim tin nhắn',
+        body: 'Tin nhắn quan trọng được ghim để người dùng dễ xem lại trong nhóm hoặc chat 1-1.'
+      },
+      {
+        group: 'Chat',
+        title: 'Thu hồi tin nhắn',
+        body: 'Người gửi có thể thu hồi tin nhắn, giao diện cập nhật nội dung thành tin nhắn đã thu hồi.'
+      },
+      {
+        group: 'Chat',
+        title: 'Chỉnh sửa tin nhắn',
+        body: 'Người gửi có thể sửa nội dung, giúp giảm lỗi nhập sai trong trao đổi học tập.'
+      },
+      {
+        group: 'Chat',
+        title: 'Xóa tin nhắn',
+        body: 'Người dùng có thể xóa tin nhắn khỏi phía mình, dữ liệu xóa được lưu local để lọc lịch sử.'
+      },
+      {
+        group: 'Chat',
+        title: 'Tìm kiếm tin nhắn',
+        body: 'API search giúp lọc tin nhắn theo từ khóa, hỗ trợ tìm lại bài tập, link hoặc tài liệu.'
+      },
+      {
+        group: 'Chat',
+        title: 'Upload file',
+        body: 'Người dùng chọn file hoặc ảnh, ứng dụng gửi multipart request lên backend.'
+      },
+      {
+        group: 'Bạn bè',
+        title: 'Tìm bạn',
+        body: 'Người dùng nhập số điện thoại để tìm tài khoản trong hệ thống và gửi lời mời kết bạn.'
+      },
+      {
+        group: 'Bạn bè',
+        title: 'Danh sách bạn bè',
+        body: 'Danh bạ được sắp xếp theo alphabet, có ô tìm kiếm theo tên hoặc số điện thoại.'
+      },
+      {
+        group: 'Bạn bè',
+        title: 'Lời mời kết bạn',
+        body: 'Tab thông báo hiển thị lời mời, cho phép đồng ý hoặc từ chối ngay.'
+      },
+      {
+        group: 'Bạn bè',
+        title: 'Chặn người dùng',
+        body: 'Người dùng có thể chặn tài khoản khác để hạn chế tương tác không mong muốn.'
+      },
+      {
+        group: 'Nhóm',
+        title: 'Tạo nhóm',
+        body: 'Người dùng chọn bạn bè, đặt tên nhóm và tạo không gian trao đổi riêng.'
+      },
+      {
+        group: 'Nhóm',
+        title: 'Mời thành viên',
+        body: 'Chủ nhóm có thể gửi lời mời nhóm, người nhận xử lý trong tab thông báo.'
+      },
+      {
+        group: 'Nhóm',
+        title: 'Ghi chú nhóm',
+        body: 'Group notes giúp lưu nội dung quan trọng như lịch họp, deadline và phân công.'
+      },
+      {
+        group: 'Nhóm',
+        title: 'Bình chọn',
+        body: 'Poll hỗ trợ nhóm ra quyết định nhanh, ví dụ chọn thời gian họp hoặc chủ đề học.'
+      },
+      {
+        group: 'Nhóm',
+        title: 'Cài đặt nhóm',
+        body: 'Màn group settings hỗ trợ xem thông tin nhóm, thành viên và các thao tác quản lý.'
+      },
+      {
+        group: 'Thông báo',
+        title: 'Thông báo tổng hợp',
+        body: 'Tab thông báo gom lời mời kết bạn và lời mời nhóm vào một màn hình dễ xử lý.'
+      },
+      {
+        group: 'Thông báo',
+        title: 'Lọc thông báo',
+        body: 'Người dùng lọc theo tất cả, kết bạn hoặc nhóm, mỗi chip có số lượng tương ứng.'
+      },
+      {
+        group: 'Thông báo',
+        title: 'Tìm thông báo',
+        body: 'Thanh tìm kiếm hỗ trợ tìm theo tên người gửi, tên nhóm hoặc nội dung mô tả.'
+      },
+      {
+        group: 'Thông báo',
+        title: 'Empty state',
+        body: 'Khi không có dữ liệu hoặc không tìm thấy kết quả, giao diện hiển thị thông báo phù hợp.'
+      },
+      {
+        group: 'Hồ sơ',
+        title: 'Xem hồ sơ',
+        body: 'Người dùng xem thông tin cá nhân gồm họ, tên, email, số điện thoại, ngày sinh và giới tính.'
+      },
+      {
+        group: 'Hồ sơ',
+        title: 'Cập nhật hồ sơ',
+        body: 'Form cập nhật gửi JSON hoặc multipart tùy có avatar hay không.'
+      },
+      {
+        group: 'Hồ sơ',
+        title: 'Avatar',
+        body: 'Người dùng chọn ảnh từ thư viện, ứng dụng xử lý URI và upload lên backend.'
+      },
+      {
+        group: 'Hồ sơ',
+        title: 'Đổi mật khẩu',
+        body: 'Màn hồ sơ có modal đổi mật khẩu, yêu cầu mật khẩu cũ và mật khẩu mới.'
+      },
+      {
+        group: 'Tài nguyên',
+        title: 'Danh sách tài nguyên',
+        body: 'Màn resources hiển thị tài liệu học tập, có tìm kiếm và lọc theo danh mục.'
+      },
+      {
+        group: 'Tài nguyên',
+        title: 'Upload tài nguyên',
+        body: 'Người dùng có thể chọn tài liệu từ thiết bị và gửi lên hệ thống.'
+      },
+      {
+        group: 'Tài nguyên',
+        title: 'Tải tài nguyên',
+        body: 'Tài liệu có thể được mở hoặc tải xuống tùy loại file và nền tảng.'
+      },
+      {
+        group: 'Lớp học',
+        title: 'Danh sách lớp',
+        body: 'Màn classes cho phép xem các lớp hiện có và tìm kiếm theo từ khóa.'
+      },
+      {
+        group: 'Lớp học',
+        title: 'Chi tiết lớp',
+        body: 'Trang chi tiết lớp hiển thị thông tin lớp, thành viên hoặc nội dung liên quan.'
+      },
+      {
+        group: 'AI',
+        title: 'Trợ lý AI',
+        body: 'Màn AI hỗ trợ hỏi đáp học tập, gợi ý nội dung và hỗ trợ người dùng nhanh hơn.'
+      },
+      {
+        group: 'Cuộc gọi',
+        title: 'Gọi audio',
+        body: 'Người dùng gọi thoại 1-1 để trao đổi nhanh trong bối cảnh học tập.'
+      },
+      {
+        group: 'Cuộc gọi',
+        title: 'Gọi video',
+        body: 'Cuộc gọi video dùng WebRTC, yêu cầu quyền camera và microphone.'
+      },
+      {
+        group: 'Cuộc gọi',
+        title: 'Gọi nhóm',
+        body: 'Group call gửi offer đến nhiều thành viên, phù hợp họp nhóm hoặc trao đổi bài.'
+      },
+      {
+        group: 'Cuộc gọi',
+        title: 'Incoming call',
+        body: 'Màn cuộc gọi đến cho phép người dùng chấp nhận hoặc từ chối cuộc gọi.'
+      },
+      {
+        group: 'Bảo mật',
+        title: 'Lưu token',
+        body: 'Token được lưu trong AsyncStorage/localStorage polyfill, request gắn Authorization header.'
+      },
+      {
+        group: 'Bảo mật',
+        title: 'Role',
+        body: 'Backend trả role để phân biệt người dùng thường, giáo viên hoặc admin tùy chức năng.'
+      },
+      {
+        group: 'Bảo mật',
+        title: 'Logout token',
+        body: 'Backend có endpoint logout để xử lý token hiện tại, mobile xóa dữ liệu phiên ở local.'
+      },
+      {
+        group: 'Bảo mật',
+        title: 'Validate input',
+        body: 'Các màn đăng nhập, quên mật khẩu và đổi mật khẩu kiểm tra dữ liệu trước khi gửi API.'
+      },
+      {
+        group: 'Kiểm thử',
+        title: 'Test auth',
+        body: 'Kiểm thử login đúng/sai, lưu token, logout và quay lại màn login.'
+      },
+      {
+        group: 'Kiểm thử',
+        title: 'Test reset password',
+        body: 'Kiểm thử gửi email, nhập mã sai, nhập mã đúng và đăng nhập bằng mật khẩu mới.'
+      },
+      {
+        group: 'Kiểm thử',
+        title: 'Test chat',
+        body: 'Kiểm thử nhắn tin giữa mobile và web, gửi file, tìm kiếm, ghim và thu hồi.'
+      },
+      {
+        group: 'Kiểm thử',
+        title: 'Test notification',
+        body: 'Kiểm thử tạo lời mời, lọc thông báo, tìm thông báo và xử lý accept/reject.'
+      },
+      {
+        group: 'Kiểm thử',
+        title: 'Test WebRTC',
+        body: 'Kiểm thử trên thiết bị thật để xác nhận camera, microphone và kết nối peer.'
+      },
+      {
+        group: 'Kiểm thử',
+        title: 'Test responsive',
+        body: 'Kiểm thử giao diện trên màn hình nhỏ, tránh text tràn và nút quá sát nhau.'
+      },
+      {
+        group: 'Báo cáo',
+        title: 'CLO 1',
+        body: 'Trình bày công nghệ, khái niệm HTTP, RESTful API, WebSocket, WebRTC và JWT.'
+      },
+      {
+        group: 'Báo cáo',
+        title: 'CLO 3',
+        body: 'Trình bày kiểm thử chức năng, kiểm thử tích hợp và các kết quả mong đợi.'
+      },
+      {
+        group: 'Báo cáo',
+        title: 'CLO 4',
+        body: 'Trình bày cách cài đặt dự án, chạy npm install, expo start và backend Spring Boot.'
+      },
+      {
+        group: 'Báo cáo',
+        title: 'CLO 5',
+        body: 'Trình bày báo cáo tiến độ, báo cáo tích hợp và đóng góp cá nhân.'
+      },
+      {
+        group: 'Demo',
+        title: 'Demo login',
+        body: 'Mở app, nhập tài khoản, bật ghi nhớ tài khoản, đăng nhập và đăng xuất để kiểm tra.'
+      },
+      {
+        group: 'Demo',
+        title: 'Demo forgot password',
+        body: 'Nhập email, nhận mã, nhập mật khẩu mới và quay lại đăng nhập.'
+      },
+      {
+        group: 'Demo',
+        title: 'Demo notifications',
+        body: 'Tạo lời mời kết bạn hoặc nhóm, sau đó lọc và tìm kiếm trong tab thông báo.'
+      },
+      {
+        group: 'Demo',
+        title: 'Demo chat',
+        body: 'Mở hai tài khoản trên mobile/web và gửi tin nhắn để thấy đồng bộ real-time.'
+      },
+      {
+        group: 'Demo',
+        title: 'Demo call',
+        body: 'Dùng hai thiết bị thật, gọi audio hoặc video để kiểm tra luồng WebRTC.'
+      },
+      {
+        group: 'Kết luận',
+        title: 'Điểm mạnh',
+        body: 'Dự án có đủ frontend, backend, real-time, auth, database và media call.'
+      },
+      {
+        group: 'Kết luận',
+        title: 'Khả năng mở rộng',
+        body: 'Có thể mở rộng push notification native, dashboard học tập và phân quyền lớp học.'
+      },
+      {
+        group: 'Kết luận',
+        title: 'Bài học rút ra',
+        body: 'Nhóm hiểu hơn về tích hợp đa nền tảng, quản lý token và xử lý real-time.'
+      },
+      {
+        group: 'Kết luận',
+        title: 'Lời kết',
+        body: 'OTT Education là nền tảng học tập trực tuyến có khả năng ứng dụng thực tế và tiếp tục phát triển.'
+      }
+    ];
+
+    function renderSlideBank() {
+      if (!slideBank) return;
+      slideBank.innerHTML = slideNotes.map((item, index) => `
+        <article class="slide-card">
+          <small>${String(index + 1).padStart(2, '0')} - ${item.group}</small>
+          <strong>${item.title}</strong>
+          <span>${item.body}</span>
+        </article>
+      `).join('');
+    }
+
+    function renderIntro() {
+      const presenter = document.getElementById('presenter').value.trim() || 'Người thuyết trình';
+      const className = document.getElementById('className').value.trim() || 'Nhóm dự án';
+      const topic = document.getElementById('topic').value.trim() || 'OTT Education';
+
+      const lines = [
+        `Xin chào thầy/cô và các bạn, em là ${presenter}.`,
+        `Hôm nay em đại diện ${className} trình bày dự án ${topic}.`,
+        '',
+        'Dự án được xây dựng theo mô hình đa nền tảng gồm mobile app, web app và backend.',
+        'Mobile app sử dụng React Native và Expo, web app sử dụng React + Vite, backend sử dụng Spring Boot.',
+        'Hệ thống dùng MongoDB để lưu dữ liệu, JWT để xác thực, WebSocket/STOMP cho chat real-time và WebRTC cho cuộc gọi audio/video.',
+        '',
+        'Trong phần trình bày, em sẽ đi qua tổng quan dự án, các chức năng chính, kiến trúc hệ thống, công nghệ sử dụng, kiểm thử và phần đóng góp cá nhân.',
+        'Mục tiêu của dự án là tạo ra một nền tảng trao đổi học tập tiện lợi, có thể sử dụng trên cả web và mobile.'
+      ];
+
+      introOutput.textContent = lines.join('\n');
+    }
+
+    async function copyIntro() {
+      renderIntro();
+      try {
+        await navigator.clipboard.writeText(introOutput.textContent);
+        alert('Đã sao chép lời giới thiệu.');
+      } catch (error) {
+        alert('Không thể sao chép tự động, bạn có thể bôi đen và copy thủ công.');
+      }
+    }
+
+    renderIntro();
+    renderSlideBank();
+  </script>
+</body>
+</html>
