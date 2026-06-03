@@ -294,4 +294,6 @@ const styles = StyleSheet.create({
     },
 });
 
+MessageBubble.displayName = 'MessageBubble';
+
 export default MessageBubble;

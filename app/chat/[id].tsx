@@ -68,6 +68,7 @@ import { fetchFriendsList } from '../../src/api/user';
 import { fetchUserGroups, fetchGroupMembers, fetchGroupDetail } from '../../src/api/groupApi';
 import * as webrtcService from '../../src/services/webrtcService';
 import localStorage from '../../src/utils/localStoragePolyfill';
+import { requestMediaPermissions } from '../../src/utils/mediaPermissions';
 import { getConversationSetting, updateConversationSetting, reportUser, reportGroup } from '../../src/api/conversationSettingsApi';
 import { reactToMessage } from '../../src/api/messageApi';
 import { PollItem, CreatePollModal } from '../../src/components/group';
@@ -645,6 +646,9 @@ export default function ChatScreen() {
         if (isPrivate === 'true') {
             // ── 1-1 call ──
             try {
+                const hasPermissions = await requestMediaPermissions(isVideo);
+                if (!hasPermissions) return;
+
                 webrtcService.initializePeerConnection(
                     (candidate) => { sendCallSignal('ice-candidate', candidate, id, token); },
                     () => {},
@@ -722,6 +726,9 @@ export default function ChatScreen() {
                     Alert.alert('Thông báo', 'Không có thành viên nào trong nhóm để gọi.');
                     return;
                 }
+
+                const hasPermissions = await requestMediaPermissions(isVideo);
+                if (!hasPermissions) return;
 
                 await webrtcService.startGroupCall(isVideo);
 

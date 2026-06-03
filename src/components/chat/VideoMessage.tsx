@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { Video, ResizeMode } from 'expo-av';
 import { MaterialIcons } from '@expo/vector-icons';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as MediaLibrary from 'expo-media-library';
 import { Toast } from 'react-native-toast-message/lib/src/Toast';
 

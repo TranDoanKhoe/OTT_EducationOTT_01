@@ -329,7 +329,6 @@ const styles = StyleSheet.create({
     memberName: { fontSize: 14, fontWeight: '600', color: '#111827' },
     memberMeta: { marginTop: 2, fontSize: 12, color: '#6b7280' },
     emptyWrap: { paddingTop: 30, alignItems: 'center', gap: 8 },
-    emptyText: { color: '#6b7280', fontSize: 14 },
     // Styles cho Modal thêm thành viên
     modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
     modalCard: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, paddingBottom: 32 },
@@ -344,5 +343,5 @@ const styles = StyleSheet.create({
     confirmBtn: { backgroundColor: '#10b981', padding: 14, borderRadius: 12, alignItems: 'center', marginTop: 16 },
     confirmBtnDisabled: { backgroundColor: '#a7f3d0' },
     confirmBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
-    emptyText: { textAlign: 'center', color: '#9ca3af', padding: 24 },
+    emptyText: { textAlign: 'center', color: '#6b7280', fontSize: 14, padding: 24 },
 });

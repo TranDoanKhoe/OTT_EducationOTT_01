@@ -10,7 +10,7 @@ import {
     Linking,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { Toast } from 'react-native-toast-message/lib/src/Toast';
 

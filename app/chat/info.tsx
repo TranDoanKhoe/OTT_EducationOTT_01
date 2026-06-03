@@ -16,6 +16,7 @@ import { getFriendById } from '../../src/api/user';
 import { sendCallSignal } from '../../src/api/messageApi';
 import * as webrtcService from '../../src/services/webrtcService';
 import localStorage from '../../src/utils/localStoragePolyfill';
+import { requestMediaPermissions } from '../../src/utils/mediaPermissions';
 
 export default function ChatInfoScreen() {
     const router = useRouter();
@@ -60,6 +61,9 @@ export default function ChatInfoScreen() {
         if (calling) return;
         setCalling(true);
         try {
+            const hasPermissions = await requestMediaPermissions(isVideo);
+            if (!hasPermissions) return;
+
             webrtcService.initializePeerConnection(
                 (candidate) => { sendCallSignal('ice-candidate', candidate, String(id), token); },
                 () => {},
